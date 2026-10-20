@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v2. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v2.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -300,7 +300,7 @@ function status(m, e, ptype) {
 // ── state
 const S = { user: null, acc: null, view: '', sel: '', tab: 'results', ptype: 'W', pkey: nowWeek(), dmonth: new Date().toISOString().slice(0, 7),
   owners: {}, measures: {}, entries: {}, locks: {}, settings: {}, delays: {}, users: {}, access: {}, audit: {}, dirty: false,
-  people: {}, peopleBySite: {}, sites: {}, trades: {}, companies: {}, rates: {}, srates: {}, closed: {} };
+  people: {}, peopleBySite: {}, sites: {}, trades: {}, companies: {}, rates: {}, crates: {}, closed: {} };
 let db, auth, subs = [];
 const isAdmin = () => S.acc && S.acc.role === 'admin';
 const isCeo = () => S.acc && S.acc.role === 'ceo';
@@ -353,7 +353,7 @@ function startData() {
   watch('owners', v => S.owners = v);
   watch('locks', v => S.locks = v);
   watch('delays', v => S.delays = v);
-  if (isAdmin() || isCeo() || isFin()) { watch('measures', v => S.measures = v); watch('entries', v => S.entries = v); watch('people', v => S.people = v); watch('rates', v => S.rates = v); watch('srates', v => S.srates = v); }
+  if (isAdmin() || isCeo() || isFin()) { watch('measures', v => S.measures = v); watch('entries', v => S.entries = v); watch('people', v => S.people = v); watch('rates', v => S.rates = v); watch('crates', v => S.crates = v); }
   else if (isHead() && myOwner()) { const o = myOwner(); watch('measures/' + o, v => S.measures = { [o]: v }); watch('entries/' + o, v => S.entries = { [o]: v }); }
   if (isAdmin()) {
     watch('users', v => S.users = v); watch('access', v => S.access = v);
@@ -378,13 +378,13 @@ const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[k]}"
 
 function navItems() {
   const n = [];
-  if (isTK()) { n.push(['register', 'Site register', 'delay']); return n; }
+  if (isTK()) { n.push(['register', 'Site register', 'delay']); n.push(['dash', 'Dashboard', 'home']); return n; }
   if (isAdmin() || isCeo()) n.push(['overview', 'Overview', 'home']);
   if (isHead() && myOwner()) n.push(['mine', 'My scorecard', 'me']);
   n.push(['cards', 'Scorecards', 'cards']);
   n.push(['delays', 'Delay log', 'delay']);
   if (isFin() || isAdmin()) n.push(['finance', 'Finance check', 'fin']);
-  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); if (isAdmin()) n.push(['register', 'Site register', 'cards']); n.push(['manpower', 'Manpower', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
+  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) n.push(['register', 'Site register', 'cards']); n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
   if (isAdmin()) { n.push(['sep', 'Admin']); n.push(['people', 'People and sites', 'me']); n.push(['access', 'Access', 'key']); n.push(['setup', 'Scorecard setup', 'cog']); n.push(['activity', 'Activity', 'hist']); }
   return n;
 }
@@ -395,11 +395,12 @@ function draw() {
   const unconf = finRows().filter(r => !r.e.fConf).length;
   $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
     `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
-  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts }[S.view] || (isTK() ? vRegister : vCards);
+  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash }[S.view] || (isTK() ? vRegister : vCards);
   $('#main').innerHTML = `<div class="page">${V()}</div>`;
+  if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveSrates', 'saveHours', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'closeMonth', 'addDelay']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -424,13 +425,13 @@ function vOverview() {
     `<div class="grid g4">${tile('Scorecards', own.length, 'function heads set up')}${tile('Baselines agreed', bOk + ' of ' + mTot, 'measures ready to score')}${tile('Entered this week', sub + ' of ' + mTot, pLabel(wk))}${tile('Money figures confirmed', conf + ' of ' + money, 'by Finance, from records')}</div>` +
     `<div class="card mt"><h2>This week by scorecard</h2><p class="sub">${esc(pLabel(wk))}. Status uses the weekly target. "Not ready" means the baseline or target is not agreed yet, or no actual is entered.</p>` +
     (own.length ? `<div class="tw"><table><thead><tr><th>Function head</th><th class="num">Measures</th><th class="num">Baselines agreed</th><th>Status this week</th><th>Last update</th></tr></thead><tbody>${rows}</tbody></table></div>` :
-      `<div class="empty"><b>No scorecards yet</b>${isAdmin() ? 'Go to Setup to add them, or load the starter file.' : 'HR has not set up the scorecards yet.'}</div>`) + `</div>`;
+      `<div class="empty"><b>No scorecards yet</b>${isAdmin() ? 'Go to Scorecard setup to add them, or load the starter file.' : 'HR has not set up the scorecards yet.'}</div>`) + `</div>`;
 }
 
 // ── Scorecards
 function vCards() {
   const own = ownersSorted();
-  if (!own.length) return ph('Scorecards', '') + `<div class="card"><div class="empty"><b>No scorecards yet</b>${isAdmin() ? 'Go to Setup to add the first one.' : 'HR has not set up the scorecards yet.'}</div></div>`;
+  if (!own.length) return ph('Scorecards', '') + `<div class="card"><div class="empty"><b>No scorecards yet</b>${isAdmin() ? 'Go to Scorecard setup to add the first one.' : 'HR has not set up the scorecards yet.'}</div></div>`;
   if (!S.sel || !S.owners[S.sel]) S.sel = (isHead() && S.owners[myOwner()]) ? myOwner() : own[0][0];
   const list = own.map(([o, x]) => `<button data-a="pick" data-o="${o}" aria-pressed="${o === S.sel}"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span>${esc(x.name)}${o === myOwner() && isHead() ? ' <small>· you</small>' : ''}</button>`).join('');
   return ph(isHead() && S.sel === myOwner() ? 'My scorecard' : 'Scorecards', '', `<button class="btn out no-print" data-a="print">Print</button>`) +
@@ -648,7 +649,7 @@ function saveAccess(u) {
   set(ref(db, 'access/' + u), rec).then(() => { log('Access set', rec.email + ' → ' + role + (ro && role === 'admin' ? ' (view only)' : '') + (fin ? ' + finance' : '') + (rec.ownerId ? ' · ' + (S.owners[rec.ownerId] || {}).name : '') + (role === 'timekeeper' ? ' · ' + Object.keys(sites).map(k => nm('sites', k)).join(', ') : '')); toast('Access saved'); }).catch(fail);
 }
 function exportBackup() {
-  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'srates', 'att', 'closed'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
+  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
     const blob = new Blob([JSON.stringify(Object.fromEntries(r), null, 1)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PEH-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     log('Backup downloaded', ''); }).catch(fail);
@@ -668,7 +669,7 @@ function loadStarter(inp) {
 
 
 // ══ Step 2: site attendance, manpower, people master, costs and reports ══
-const STAT = [['P', 'Present'], ['A', 'Absent'], ['SL', 'Sick leave'], ['AL', 'Annual leave'], ['UL', 'Unpaid leave'], ['CO', 'Comp. off'], ['WFH', 'Work from home'], ['LL', 'Long leave']];
+const STAT = [['P', 'Present'], ['A', 'Absent'], ['SL', 'Sick leave'], ['AL', 'Annual leave'], ['UL', 'Unpaid leave'], ['CO', 'Comp. off'], ['WFH', 'Work from home'], ['LL', 'Long leave'], ['NJ', 'Not yet in office']];
 const LEAVE = s => ['SL', 'AL', 'UL', 'CO', 'LL'].includes(s);
 const CATS = [['staff', 'CKC staff'], ['labour', 'CKC labour'], ['supply', 'Supply labour']];
 const catName = c => c === 'sub' ? 'Subcontractors' : (CATS.find(x => x[0] === c) || [c, c])[1];
@@ -677,7 +678,7 @@ const isTK = () => !!(S.acc && S.acc.role === 'timekeeper');
 const canW = () => isAdmin() && S.acc.ro !== true;
 const seesCost = () => isAdmin() || isCeo() || isFin();
 const tkSites = () => Object.keys((S.acc && S.acc.sites) || {}).filter(k => S.acc.sites[k] === true);
-const HRS = () => Object.assign({ wd: 8, sat: 6, otf: 1.25 }, S.settings.hours || {});
+const HRS = () => Object.assign({ wd: 8, sat: 6, otf: 1.25, sotf: 1 }, S.settings.hours || {});
 const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 const today = () => ymd(new Date());
 const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return ymd(d); };
@@ -690,11 +691,10 @@ const monthsBetween = (a, b) => { const out = []; let [y, m] = a.slice(0, 7).spl
 const attCache = {};
 async function loadMonths(ms, force) { await Promise.all(ms.filter(m => force || !attCache[m]).map(m => get(ref(db, 'att/' + m)).then(s => { attCache[m] = s.val() || {}; }))); }
 function rateFor(pid, m) { const r = S.rates[pid]; if (!r) return null; const k = Object.keys(r).filter(x => x <= m).sort().pop(); return k ? Object.assign({ from: k }, r[k]) : null; }
-function srateFor(cid, tid, m) { const r = S.srates[cid]; if (!r) return null; const k = Object.keys(r).filter(x => x <= m && r[x] && r[x][tid] != null).sort().pop(); return k ? Number(r[k][tid]) : null; }
 // cost of one day for one person. null = no rate on record (never estimated)
 function dayCost(p, pid, date, rec, basis) {
   const m = date.slice(0, 7), h = Number(rec.h || 0), ot = Number(rec.ot || 0); if (!h && !ot) return 0;
-  if (p.cat === 'supply') { if (basis === 'fixed') return 0; const r = srateFor(p.company, p.trade, m); if (r == null) return null; const base = stdDay(date) || Number(HRS().wd); return (h / base) * r + (ot / base) * r * Number(HRS().otf); }
+  if (p.cat === 'supply') { if (basis === 'fixed') return 0; const v = companyCost(p.company, date, h, ot); return v.state === 'norate' ? null : v.cost; }
   const r = rateFor(pid, m); if (!r) return null;
   const amt = basis === 'fixed' ? Number(r.fx || 0) : basis === 'variable' ? Number(r.vr || 0) : Number(r.fx || 0) + Number(r.vr || 0);
   const ms = monthStd(m); if (!ms) return null; const hr = amt / ms; return h * hr + ot * hr * Number(HRS().otf);
@@ -814,7 +814,7 @@ function vManpower() {
   const total = T.staff + T.labour + T.supply + T.sub;
   const tile = (l, v, s) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
   const compRows = Object.entries(comp).sort((a, b) => b[1].n - a[1].n).map(([c, x]) => `<tr><td>${esc(nm('companies', c))}</td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td><td class="num">${x.n}</td><td style="color:var(--muted)">${[...x.sites].map(s => esc(nm('sites', s))).join(', ')}</td></tr>`).join('');
-  return ph('Manpower', 'Who was deployed where, for one day. Built from the site registers, so the totals always add up.',
+  return ph('Daily report', 'Who was deployed where, for one day. Built from the site registers, so the totals always add up.',
       `<div class="row no-print"><input class="inp" type="date" data-c="mpDate" value="${D}" style="width:auto"><button class="btn tonal" data-a="mpPdf">Download PDF</button><button class="btn text" data-a="print">Print</button></div>`) +
     `<div class="grid g4">${tile('Total deployed', total, fmtD(D))}${tile('CKC present', T.staff + T.labour, T.staff + ' staff · ' + T.labour + ' labour')}${tile('Supply and subcontractors', T.supply + T.sub, T.supply + ' supply · ' + T.sub + ' subcontract')}${tile('Registers missing', T.missing, 'of ' + sites.length + ' sites')}</div>` +
     `<div class="card mt"><h2>By site</h2><p class="sub">${fmtH(T.h)} normal hours and ${fmtH(T.ot)} overtime hours recorded for CKC and supply labour.</p><div class="tw"><table><thead><tr><th>Site</th><th class="num">CKC staff</th><th class="num">CKC labour</th><th class="num">Supply</th><th class="num">Subcontract</th><th class="num">Total</th><th class="num">Absent / leave</th><th>Register</th></tr></thead><tbody>${rows}</tbody>
@@ -842,17 +842,18 @@ function keyOf(by, p, pid, sid, date) {
 }
 function computeReport(o) {
   const rows = {}; let noRate = 0, days = 0;
-  const row = (k, l) => rows[k] = rows[k] || { label: l, md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0 };
+  const row = (k, l) => rows[k] = rows[k] || { label: l, md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0, subC: 0, costedH: 0 };
   monthsBetween(o.from, o.to).forEach(m => Object.entries(attCache[m] || {}).forEach(([d, sites]) => {
     const date = m + '-' + d; if (date < o.from || date > o.to) return; days++;
     Object.entries(sites || {}).forEach(([sid, r]) => { if (o.site && sid !== o.site) return;
       if (o.cat !== 'sub') Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { name: '(person removed)', cat: 'labour' }; if (o.cat && p.cat !== o.cat) return;
         const [k, l] = keyOf(o.by, p, pid, sid, date); const x = row(k, l); const h = Number(a.h || 0);
         if ((a.s === 'P' || a.s === 'WFH') && (h > 0 || Number(a.ot || 0) > 0)) x.md++; x.h += h; x.ot += Number(a.ot || 0); if (a.s === 'A') x.abs++; if (LEAVE(a.s)) x.lv++;
-        if (seesCost()) { const c = dayCost(p, pid, date, a, o.basis); if (c == null) { x.miss++; noRate++; } else x.cost += c; } });
-      if ((!o.cat || o.cat === 'sub') && ['site', 'project', 'company', 'month', 'cat'].includes(o.by)) Object.entries(r.sub || {}).forEach(([c, n]) => { const p = { cat: 'sub', company: c }; const [k, l] = keyOf(o.by, p, '', sid, date); row(k, l).sub += Number(n); }); }); }));
-  const list = Object.entries(rows).map(([k, x]) => x).sort((a, b) => seesCost() ? b.cost - a.cost || b.h - a.h : b.h - a.h);
-  const tot = list.reduce((t, x) => { ['md', 'h', 'ot', 'abs', 'lv', 'cost', 'miss', 'sub'].forEach(f => t[f] += x[f]); return t; }, { md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0 });
+        if (seesCost()) { const c = dayCost(p, pid, date, a, o.basis); if (c == null) { x.miss++; noRate++; } else { x.cost += c; x.costedH += h + Number(a.ot || 0); } } });
+      if ((!o.cat || o.cat === 'sub') && ['site', 'project', 'company', 'month', 'cat'].includes(o.by)) Object.entries(r.sub || {}).forEach(([c, n]) => { const p = { cat: 'sub', company: c }; const [k, l] = keyOf(o.by, p, '', sid, date); const x = row(k, l); n = Number(n); x.sub += n;
+        if (seesCost() && o.basis !== 'fixed') { const hh = n * subHours(date); const v = companyCost(c, date, hh, 0); if (v.state === 'norate') { x.miss++; noRate++; } else if (v.state === 'ok') { x.subC += v.cost; x.costedH += hh; } } }); }); }));
+  const list = Object.entries(rows).map(([k, x]) => x).sort((a, b) => seesCost() ? (b.cost + b.subC) - (a.cost + a.subC) || b.h - a.h : b.h - a.h);
+  const tot = list.reduce((t, x) => { ['md', 'h', 'ot', 'abs', 'lv', 'cost', 'miss', 'sub', 'subC', 'costedH'].forEach(f => t[f] += x[f]); return t; }, { md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0, subC: 0, costedH: 0 });
   return { list, tot, noRate, days };
 }
 async function runReport() {
@@ -870,8 +871,8 @@ function vReports() {
   const stale = R && o.ran !== JSON.stringify([o.from, o.to, o.by, o.basis, o.cat, o.site]);
   const label = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
   const showSub = ['site', 'project', 'company', 'month', 'cat'].includes(o.by) && o.cat !== 'staff' && o.cat !== 'labour' && o.cat !== 'supply';
-  const head = `<tr><th>${esc(label)}</th><th class="num">Man-days</th><th class="num">Normal hours</th><th class="num">Overtime hours</th><th class="num">Absent days</th><th class="num">Leave days</th>${showSub ? '<th class="num">Subcontract man-days</th>' : ''}${cost ? '<th class="num">Labour cost (AED)</th>' : ''}</tr>`;
-  const line = (x, b) => `<tr>${b ? '<td><b>Total</b></td>' : `<td>${esc(x.label)}</td>`}<td class="num">${fmtH(x.md)}</td><td class="num">${fmtH(x.h)}</td><td class="num">${fmtH(x.ot)}</td><td class="num">${x.abs}</td><td class="num">${x.lv}</td>${showSub ? `<td class="num">${fmtN(x.sub)}</td>` : ''}${cost ? `<td class="num">${b ? '<b>' : ''}${Math.round(x.cost).toLocaleString('en-US')}${x.miss ? ' <span class="chip warn plain" title="Days with no rate on record">' + x.miss + ' no rate</span>' : ''}${b ? '</b>' : ''}</td>` : ''}</tr>`;
+  const head = `<tr><th>${esc(label)}</th><th class="num">Man-days</th><th class="num">Normal hours</th><th class="num">Overtime hours</th><th class="num">Absent days</th><th class="num">Leave days</th>${showSub ? '<th class="num">Subcontract man-days</th>' : ''}${cost ? '<th class="num">CKC + supply cost</th>' + (showSub ? '<th class="num">Subcontract cost</th>' : '') + '<th class="num">Total cost (AED)</th><th class="num">AED / man-hour</th>' : ''}</tr>`;
+  const line = (x, b) => `<tr>${b ? '<td><b>Total</b></td>' : `<td>${esc(x.label)}</td>`}<td class="num">${fmtH(x.md)}</td><td class="num">${fmtH(x.h)}</td><td class="num">${fmtH(x.ot)}</td><td class="num">${x.abs}</td><td class="num">${x.lv}</td>${showSub ? `<td class="num">${fmtN(x.sub)}</td>` : ''}${cost ? `<td class="num">${r0(x.cost)}</td>${showSub ? `<td class="num">${r0(x.subC)}</td>` : ''}<td class="num">${b ? '<b>' : ''}${r0(x.cost + x.subC)}${x.miss ? ' <span class="chip warn plain" title="Days with no rate on record">' + x.miss + ' no rate</span>' : ''}${b ? '</b>' : ''}</td><td class="num">${x.costedH ? r1((x.cost + x.subC) / x.costedH) : '—'}</td>` : ''}</tr>`;
   return ph('Reports', 'Any period, grouped the way you need. Built from the daily site registers.') +
     `<div class="card no-print"><div class="row" style="gap:8px;margin-bottom:14px">${[['month', 'This month'], ['last', 'Last month'], ['ytd', 'Year to date'], ['lastyear', 'Last year']].map(([k, l]) => `<button class="btn out sm" data-a="repQuick" data-v="${k}">${l}</button>`).join('')}</div>
      <div class="row" style="gap:12px;align-items:flex-end">
@@ -887,7 +888,7 @@ function vReports() {
       <div class="row" style="justify-content:space-between"><div><h2>${esc(label)} · ${fmtD(o.from)} to ${fmtD(o.to)}</h2><p class="sub" style="margin:0">${R.days} day${R.days === 1 ? '' : 's'} with registers${o.site ? ' · ' + esc(nm('sites', o.site)) : ''}${o.cat ? ' · ' + esc(catName(o.cat)) : ''}${cost ? ' · ' + (o.basis === 'both' ? 'fixed + variable cost' : o.basis + ' cost only') : ''}</p></div>
       <div class="row no-print"><button class="btn tonal sm" data-a="repPdf">Download PDF</button><button class="btn out sm" data-a="repCsv">Download Excel (CSV)</button><button class="btn text sm" data-a="print">Print</button></div></div>
       ${R.list.length ? `<div class="tw mt"><table><thead>${head}</thead><tbody>${R.list.map(x => line(x)).join('')}</tbody><tfoot>${line(R.tot, true)}</tfoot></table></div>` : '<div class="empty"><b>No register entries in this period</b></div>'}
-      ${cost ? `<p class="note">Cost uses actual monthly cost records only: hours × (monthly cost ÷ standard hours in that month); overtime × ${HRS().otf}. Supply labour uses each company's man-day rate and counts as variable cost. Leave and absence days carry no project cost here.${R.noRate ? ' <b style="color:var(--warn)">' + R.noRate + ' person-days have no rate on record, so cost is understated. Add the missing rates under Costs and rates.</b>' : ''}</p>` : ''}</div>`);
+      ${cost ? `<p class="note">Cost uses actual monthly cost records only: hours × (monthly cost ÷ standard hours in that month); overtime × ${HRS().otf}. Supply and subcontract labour use each company's hourly or daily rate and count as variable cost; contract subcontractors are not costed. Leave and absence days carry no project cost here.${R.noRate ? ' <b style="color:var(--warn)">' + R.noRate + ' person-days have no rate on record, so cost is understated. Add the missing rates under Costs and rates.</b>' : ''}</p>` : ''}</div>`);
 }
 
 // ── People and sites (master lists)
@@ -907,7 +908,7 @@ function vPeople() {
     const col = t; const extra = { sites: ['project', 'Project'], trades: ['group', 'Trade group'], companies: ['kind', 'Type'] }[t];
     const list = Object.entries(S[col]).sort(byName);
     body = `<div class="row no-print" style="justify-content:flex-end;margin-bottom:12px"><button class="btn fill wi" data-a="editMaster" data-v="">Add ${t === 'sites' ? 'site' : t === 'trades' ? 'trade' : 'company'}</button></div>
-      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>${extra[1]}</th>${t === 'sites' ? '<th>Region</th><th>Status</th>' : ''}<th></th></tr></thead><tbody>${list.map(([k, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${esc(t === 'companies' ? (x.kind === 'sub' ? 'Subcontractor' : 'Supply labour') : x[extra[0]] || '')}</td>${t === 'sites' ? `<td>${esc(x.region || '')}</td><td>${x.active === false ? chip('', 'Closed') : chip('good', 'Active')}</td>` : ''}<td><button class="btn text sm wi" data-a="editMaster" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>Nothing added yet</b></div>'}
+      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>${extra[1]}</th>${t === 'sites' ? '<th>Region</th><th>Status</th>' : ''}<th></th></tr></thead><tbody>${list.map(([k, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${esc(t === 'companies' ? (x.kind === 'sub' ? 'Subcontractor' : 'Supply labour') + ' · ' + basisName(coBasis(k)) : x[extra[0]] || '')}</td>${t === 'sites' ? `<td>${esc(x.region || '')}</td><td>${x.active === false ? chip('', 'Closed') : chip('good', 'Active')}</td>` : ''}<td><button class="btn text sm wi" data-a="editMaster" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>Nothing added yet</b></div>'}
       <p class="note">${t === 'companies' ? 'One spelling per company. Timekeepers pick from this list, so totals by company always add up.' : t === 'trades' ? 'Each trade belongs to one group (Civil, MEP, Joinery, Staff, Drivers, Office) for the summaries.' : 'Sites with the same project name are added together in project reports.'}</p>`;
   }
   return ph('People and sites', 'Master lists used by the registers and reports. Salaries are not stored here; see Costs and rates.') +
@@ -936,11 +937,11 @@ function editMaster(k) {
   const col = S.pp.tab; const x = S[col][k] || {};
   const f = col === 'sites' ? [{ id: 'name', l: 'Site name', v: x.name }, { id: 'project', l: 'Project (sites with the same project are added together)', v: x.project }, { id: 'region', l: 'Region', v: x.region }, { id: 'active', l: 'Status', t: 'sel', v: x.active === false ? '0' : '1', o: [['1', 'Active'], ['0', 'Closed']] }]
     : col === 'trades' ? [{ id: 'name', l: 'Trade', v: x.name }, { id: 'group', l: 'Trade group', t: 'sel', v: x.group || 'Civil', o: TGROUPS.map(g => [g, g]) }]
-    : [{ id: 'name', l: 'Company name (one spelling)', v: x.name }, { id: 'kind', l: 'Type', t: 'sel', v: x.kind || 'supply', o: [['supply', 'Supply labour (paid per man-day)'], ['sub', 'Subcontractor (headcount only)']] }];
+    : [{ id: 'name', l: 'Company name (one spelling)', v: x.name }, { id: 'kind', l: 'Type', t: 'sel', v: x.kind || 'supply', o: [['supply', 'Supply labour'], ['sub', 'Subcontractor']] }, { id: 'cb', l: 'Costed by', t: 'sel', v: x.cb || (x.kind === 'sub' ? 'contract' : 'hour'), o: [['hour', 'Hourly rate'], ['day', 'Daily rate'], ['contract', 'Contract, not costed (subcontractors only)']] }];
   modal((k ? 'Edit ' : 'Add ') + (col === 'sites' ? 'site' : col === 'trades' ? 'trade' : 'company'), f, r => {
     if (!r.name) { toast('Enter the name.'); return; }
     if (Object.entries(S[col]).some(([i, y]) => i !== k && String(y.name).trim().toLowerCase() === r.name.trim().toLowerCase())) { toast('That name already exists.'); return; }
-    const rec = { name: r.name.slice(0, 120) }; if (col === 'sites') { if (r.project) rec.project = r.project.slice(0, 120); if (r.region) rec.region = r.region.slice(0, 80); rec.active = r.active === '1'; } if (col === 'trades') rec.group = r.group; if (col === 'companies') rec.kind = r.kind;
+    const rec = { name: r.name.slice(0, 120) }; if (col === 'sites') { if (r.project) rec.project = r.project.slice(0, 120); if (r.region) rec.region = r.region.slice(0, 80); rec.active = r.active === '1'; } if (col === 'trades') rec.group = r.group; if (col === 'companies') { rec.kind = r.kind; if (r.kind === 'supply' && r.cb === 'contract') { toast('Supply labour is costed hourly or daily. Contract is for subcontractors only.'); return; } rec.cb = r.cb; }
     const id = k || push(ref(db, col)).key;
     set(ref(db, col + '/' + id), rec).then(() => { log((k ? 'Edited ' : 'Added ') + col.slice(0, -1), rec.name); closeModal(); toast('Saved'); }).catch(fail);
   });
@@ -981,21 +982,24 @@ function vCosts() {
       <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="fx_${k}" value="${own && fx != null ? esc(fx) : ''}" placeholder="${r && !own ? esc(fmtN(fx)) : '—'}" aria-label="Fixed cost">` : fmtN(fx)}</td>
       <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="vr_${k}" value="${own && vr != null ? esc(vr) : ''}" placeholder="${r && !own ? esc(fmtN(vr)) : '—'}" aria-label="Variable cost">` : fmtN(vr)}</td>
       <td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
-  const sup = Object.entries(S.companies).filter(([k, c]) => c.kind === 'supply').sort(byName);
-  const usedTrades = [...new Set(Object.values(S.people).filter(p => p.cat === 'supply').map(p => p.trade).filter(Boolean))].sort((a, b) => nm('trades', a).localeCompare(nm('trades', b)));
-  const sRows = sup.map(([c, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td>${usedTrades.map(t => { const v = srateFor(c, t, M); const own = S.srates[c] && S.srates[c][M] && S.srates[c][M][t] != null;
-      return `<td class="num">${ed ? `<input class="inp n wi" style="width:84px" inputmode="decimal" id="sr_${c}_${t}" value="${own ? esc(v) : ''}" placeholder="${v != null && !own ? esc(v) : '—'}" aria-label="${esc(x.name)} ${esc(nm('trades', t))} man-day rate">` : fmtN(v)}</td>`; }).join('')}</tr>`).join('');
+  const cos = Object.entries(S.companies).sort((a, b) => (a[1].kind === b[1].kind ? 0 : a[1].kind === 'supply' ? -1 : 1) || String(a[1].name).localeCompare(b[1].name));
+  const cRows = cos.map(([c, x]) => { const bas = coBasis(c); const r = crateFor(c, M); const own = S.crates[c] && S.crates[c][M];
+    return `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td>
+      <td>${ed ? `<select class="inp wi" id="cb_${c}" style="width:auto">${(x.kind === 'sub' ? ['hour', 'day', 'contract'] : ['hour', 'day']).map(v => `<option value="${v}" ${bas === v ? 'selected' : ''}>${basisName(v)}</option>`).join('')}</select>` : basisName(bas)}</td>
+      <td class="num">${bas === 'contract' ? '<span class="mmeta">—</span>' : ed ? `<input class="inp n wi" inputmode="decimal" id="cr_${c}" value="${own ? esc(own.r) : ''}" placeholder="${r && !own ? esc(fmtN(r.r)) : '—'}" aria-label="${esc(x.name)} rate">` : (r ? fmtN(r.r) + ' / ' + (r.u === 'day' ? 'day' : 'hour') : '—')}</td>
+      <td>${bas === 'contract' ? chip('', 'Contract') : !r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)} (${r.u === 'day' ? 'daily' : 'hourly'})</span>`}</td></tr>`; }).join('');
   return ph('Costs and rates', 'Actual monthly cost per person and supply man-day rates. Only super users, Finance and the CEO can open this page.', `<div class="row no-print"><input class="inp" type="month" data-c="crMonth" value="${M}" style="width:auto"></div>`) +
     `<div class="card"><h2>Working hours and overtime</h2><p class="sub">Used to turn a monthly cost into an hourly cost. Finance should confirm the overtime factor against payroll practice.</p>
-      <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="field"><label for="hWd">Hours Monday to Friday</label>${ed ? `<input class="inp wi" id="hWd" inputmode="decimal" value="${H0.wd}">` : `<div>${H0.wd}</div>`}</div>
+      <div class="form-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="field"><label for="hWd">Hours Monday to Friday</label>${ed ? `<input class="inp wi" id="hWd" inputmode="decimal" value="${H0.wd}">` : `<div>${H0.wd}</div>`}</div>
       <div class="field"><label for="hSat">Hours Saturday</label>${ed ? `<input class="inp wi" id="hSat" inputmode="decimal" value="${H0.sat}">` : `<div>${H0.sat}</div>`}</div>
-      <div class="field"><label for="hOtf">Overtime factor</label>${ed ? `<input class="inp wi" id="hOtf" inputmode="decimal" value="${H0.otf}">` : `<div>${H0.otf}</div>`}</div></div>
+      <div class="field"><label for="hOtf">CKC overtime factor</label>${ed ? `<input class="inp wi" id="hOtf" inputmode="decimal" value="${H0.otf}">` : `<div>${H0.otf}</div>`}</div>
+      <div class="field"><label for="hSotf">Company overtime factor</label>${ed ? `<input class="inp wi" id="hSotf" inputmode="decimal" value="${H0.sotf}">` : `<div>${H0.sotf}</div>`}</div></div>
       ${ed ? '<button class="btn tonal wi" data-a="saveHours">Save</button>' : ''}<p class="note">Standard hours in ${esc(M)}: ${monthStd(M)}. Sundays count as 0; public holidays are not deducted yet.</p></div>` +
     `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC monthly cost per person · ${esc(M)}</h2><p class="sub" style="margin:0">Fixed: salary, pension, gratuity accrual, flights. Variable: medical insurance, visa, training and other actual costs. A month without its own figure uses the most recent earlier month.</p></div>
       ${ed ? `<div class="row no-print"><label class="btn out sm wi" style="position:relative">Import CSV<input type="file" accept=".csv" data-c="importRates" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplRates">Template</button><button class="btn fill wi" data-a="saveRates">Save ${esc(M)}</button></div>` : ''}</div>
       ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
-    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Supply labour man-day rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supplier contract, per trade. Used for cost and for checking supplier invoices.</p></div>${ed && sup.length && usedTrades.length ? '<button class="btn fill wi no-print" data-a="saveSrates">Save rates</button>' : ''}</div>
-      ${sup.length && usedTrades.length ? `<div class="tw mt"><table><thead><tr><th>Company</th>${usedTrades.map(t => `<th class="num">${esc(nm('trades', t))}</th>`).join('')}</tr></thead><tbody>${sRows}</tbody></table></div>` : '<div class="empty"><b>No supply labour yet</b>Add supply companies and supply workers first.</div>'}</div>` +
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Company rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supply or subcontract agreement. Choose hourly or daily per company; subcontractors on a lump-sum or measured contract are set to Contract and are not costed from hours.</p></div>${ed && cos.length ? '<button class="btn fill wi no-print" data-a="saveCrates">Save rates</button>' : ''}</div>
+      ${cos.length ? `<div class="tw mt"><table><thead><tr><th>Company</th><th>Type</th><th>Costed by</th><th class="num">Rate (AED)</th><th></th></tr></thead><tbody>${cRows}</tbody></table></div>` : '<div class="empty"><b>No companies yet</b>Add them under People and sites → Companies.</div>'}</div>` +
     (ed ? `<div class="card"><h2>Close a month</h2><p class="sub">After payroll, close the month so timekeepers can no longer change its registers. Super users can still correct it, and every change is logged.</p>
       <div class="row"><span>${esc(M)}: ${isClosed(M) ? chip('pri', 'Closed') : chip('good', 'Open')}</span><button class="btn out sm wi" data-a="closeMonth">${isClosed(M) ? 'Re-open' : 'Close'} ${esc(M)}</button></div></div>` : '');
 }
@@ -1010,12 +1014,16 @@ function saveRates() {
   if (!n) { toast('Nothing changed.'); return; }
   update(ref(db), upd).then(() => { log('Monthly costs saved', M + ' · ' + n + ' people'); toast('Saved ' + n); }).catch(fail);
 }
-function saveSrates() {
-  const M = S.cr.month; const upd = {}; let n = 0, bad = false;
-  document.querySelectorAll('[id^="sr_"]').forEach(el => { const [, c, t] = el.id.split('_'); const v = num(el.value); if (Number.isNaN(v) || (v != null && v < 0)) { bad = true; return; }
-    const cur = S.srates[c] && S.srates[c][M] && S.srates[c][M][t]; if (v == null) { if (cur != null) { upd['srates/' + c + '/' + M + '/' + t] = null; n++; } return; } if (cur !== v) { upd['srates/' + c + '/' + M + '/' + t] = v; n++; } });
-  if (bad) { toast('Rates must be numbers.'); return; } if (!n) { toast('Nothing changed.'); return; }
-  update(ref(db), upd).then(() => { log('Supply rates saved', M + ' · ' + n + ' rates'); toast('Saved'); }).catch(fail);
+function saveCrates() {
+  const M = S.cr.month; const upd = {}; let n = 0, bad = '';
+  Object.entries(S.companies).forEach(([c, x]) => { const sel = $('#cb_' + c); if (!sel) return; const bas = sel.value; const inp = $('#cr_' + c); const v = inp ? num(inp.value) : null;
+    if (Number.isNaN(v) || (v != null && v < 0)) { bad = x.name; return; }
+    if (bas !== coBasis(c)) { upd['companies/' + c + '/cb'] = bas; n++; }
+    const cur = S.crates[c] && S.crates[c][M];
+    if (bas === 'contract' || v == null) { if (cur && bas === 'contract') { upd['crates/' + c + '/' + M] = null; n++; } return; }
+    if (!cur || cur.r !== v || cur.u !== bas) { upd['crates/' + c + '/' + M] = { u: bas, r: v }; n++; } });
+  if (bad) { toast('Check the rate for ' + bad + '. Numbers only.'); return; } if (!n) { toast('Nothing changed.'); return; }
+  update(ref(db), upd).then(() => { log('Company rates saved', M + ' · ' + n + ' changes'); toast('Saved'); }).catch(fail);
 }
 function importRates(inp) {
   const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader();
@@ -1059,13 +1067,13 @@ const numAlign = n => { const o = {}; for (let i = 1; i < n; i++) o[i] = { halig
 async function reportPdf() {
   const o = S.rep, R = o.res; if (!R) return; const cost = seesCost(); const lab = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
   const showSub = ['site', 'project', 'company', 'month', 'cat'].includes(o.by) && !['staff', 'labour', 'supply'].includes(o.cat);
-  const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days'].concat(showSub ? ['Subcontract man-days'] : [], cost ? ['Labour cost (AED)'] : []);
-  const ln = (x, t) => [t || x.label, fmtH(x.md), fmtH(x.h), fmtH(x.ot), String(x.abs), String(x.lv)].concat(showSub ? [fmtN(x.sub)] : [], cost ? [Math.round(x.cost).toLocaleString('en-US') + (x.miss ? '  (' + x.miss + ' no rate)' : '')] : []);
+  const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days'].concat(showSub ? ['Subcontract man-days'] : [], cost ? ['CKC + supply cost'].concat(showSub ? ['Sub cost'] : [], ['Total cost (AED)', 'AED/man-hour']) : []);
+  const ln = (x, t) => [t || x.label, fmtH(x.md), fmtH(x.h), fmtH(x.ot), String(x.abs), String(x.lv)].concat(showSub ? [fmtN(x.sub)] : [], cost ? [r0(x.cost)].concat(showSub ? [r0(x.subC)] : [], [r0(x.cost + x.subC) + (x.miss ? '  (' + x.miss + ' no rate)' : ''), x.costedH ? r1((x.cost + x.subC) / x.costedH) : '—']) : []);
   const sub = fmtD(o.from) + ' to ' + fmtD(o.to) + ' · grouped by ' + lab.toLowerCase() + (o.site ? ' · ' + nm('sites', o.site) : '') + (o.cat ? ' · ' + catName(o.cat) : '') + (cost ? ' · ' + (o.basis === 'both' ? 'fixed + variable cost' : o.basis + ' cost only') : '') + ' · ' + R.days + ' days with registers';
   try {
     const P = await pdfDoc('Manpower and labour cost report', sub);
     let y = P.table(31, hd, R.list.map(x => ln(x)).concat([ln(R.tot, 'Total')]), { columnStyles: numAlign(hd.length), didParseCell: d => { if (d.section === 'body' && d.row.index === R.list.length) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [232, 240, 254]; } } });
-    if (cost) { P.doc.setFontSize(7.5); P.doc.setTextColor(...P.MUT); P.doc.text(P.doc.splitTextToSize('Cost uses actual monthly cost records only: hours x (monthly cost / standard hours in that month); overtime x ' + HRS().otf + '. Supply labour uses each company\'s man-day rate (variable cost). Leave and absence carry no project cost.' + (R.noRate ? ' ' + R.noRate + ' person-days have no rate on record, so cost is understated.' : ''), P.W - 2 * P.m), P.m, Math.min(y + 6, 195)); }
+    if (cost) { P.doc.setFontSize(7.5); P.doc.setTextColor(...P.MUT); P.doc.text(P.doc.splitTextToSize('Cost uses actual monthly cost records only: hours x (monthly cost / standard hours in that month); overtime x ' + HRS().otf + '. Supply and subcontract labour use each company\'s hourly or daily rate (variable cost); contract subcontractors are not costed. Leave and absence carry no project cost.' + (R.noRate ? ' ' + R.noRate + ' person-days have no rate on record, so cost is understated.' : ''), P.W - 2 * P.m), P.m, Math.min(y + 6, 195)); }
     P.finish('PEH-report-' + o.by + '-' + o.from + '-to-' + o.to + '.pdf'); log('Report PDF downloaded', lab + ' · ' + o.from + ' to ' + o.to);
   } catch (e) { toast(e.message || 'Could not make the PDF.'); }
 }
@@ -1088,6 +1096,163 @@ async function manpowerPdf() {
     if (y > 150) { P.doc.addPage(); y = 26; }
     P.table(y + 8, ['Company', 'Type', 'Headcount'], cr.length ? cr : [['None', '', '']], { tableWidth: 160, columnStyles: { 2: { halign: 'right' } } });
     P.finish('PEH-daily-manpower-' + D + '.pdf'); log('Daily report PDF downloaded', D);
+  } catch (e) { toast(e.message || 'Could not make the PDF.'); }
+}
+
+
+// ══ Step 2.1: company rates and the manpower dashboard ══
+function crateFor(cid, m) { const r = S.crates[cid]; if (!r) return null; const k = Object.keys(r).filter(x => x <= m).sort().pop(); return k ? Object.assign({ from: k }, r[k]) : null; }
+const coBasis = c => { const x = S.companies[c] || {}; return x.cb || (x.kind === 'sub' ? 'contract' : 'hour'); };
+const basisName = b => ({ hour: 'Hourly', day: 'Daily', contract: 'Contract (not costed)' })[b] || b;
+// company labour cost for given normal and overtime hours on one date. state: ok | norate | contract
+function companyCost(cid, date, h, ot) {
+  if (coBasis(cid) === 'contract') return { cost: 0, state: 'contract' };
+  const r = crateFor(cid, date.slice(0, 7)); if (!r || r.r == null) return { cost: 0, state: 'norate' };
+  const f = Number(HRS().sotf);
+  if (r.u === 'day') { const base = stdDay(date) || Number(HRS().wd); return { cost: (h / base + (ot * f) / base) * r.r, state: 'ok' }; }
+  return { cost: (h + ot * f) * r.r, state: 'ok' };
+}
+const subHours = date => stdDay(date) || Number(HRS().wd);
+const datesBetween = (a, b) => { const out = []; let d = a; while (d <= b && out.length < 1900) { out.push(d); d = addDays(d, 1); } return out; };
+const tkAtt = {};
+async function loadRange(from, to) {
+  if (!isTK()) { await loadMonths(monthsBetween(from, to), true); return; }
+  const sites = tkSites(); const jobs = [];
+  datesBetween(from, to).forEach(date => sites.forEach(sid => jobs.push(get(ref(db, 'att/' + date.slice(0, 7) + '/' + date.slice(8) + '/' + sid)).then(s => { tkAtt[date] = tkAtt[date] || {}; if (s.val()) tkAtt[date][sid] = s.val(); else delete tkAtt[date][sid]; }).catch(() => {}))));
+  await Promise.all(jobs);
+}
+const dayData = date => isTK() ? (tkAtt[date] || {}) : ((attCache[date.slice(0, 7)] || {})[date.slice(8)] || {});
+const projOf = sid => { const s = S.sites[sid] || {}; return s.project || s.name || sid; };
+const SHOW = [['all', 'CKC + supply + subcontract'], ['ckcsup', 'CKC + supply'], ['ckc', 'CKC only'], ['supply', 'Supply only'], ['sub', 'Subcontract only']];
+S.dash = { from: addDays(today(), -29), to: today(), proj: '', site: '', show: 'all', basis: 'both', chart: 'people', res: null, busy: false, ran: '' };
+let dashCharts = [];
+
+function computeDash(o) {
+  const cost = seesCost(); const days = datesBetween(o.from, o.to);
+  const siteOk = sid => (!isTK() || tkSites().includes(sid)) && (!o.site || sid === o.site) && (!o.proj || projOf(sid) === o.proj);
+  const want = k => o.show === 'all' || o.show === k || (o.show === 'ckcsup' && (k === 'ckc' || k === 'supply'));
+  const perDay = [], site = {}, proj = {}, comp = {}, emp = {}, st = {}; let dataDays = 0, noRate = 0, contractH = 0;
+  const T = { ckc: 0, sup: 0, sub: 0, ckcH: 0, supH: 0, subH: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0 };
+  const bucket = (m, k, extra) => m[k] = m[k] || Object.assign({ ppl: 0, ckc: 0, sup: 0, sub: 0, h: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0, sites: new Set() }, extra || {});
+  days.forEach(date => {
+    const day = dayData(date); const x = { date, ckc: 0, sup: 0, sub: 0, ckcH: 0, supH: 0, subH: 0, ckcC: 0, supC: 0, subC: 0 }; let any = false;
+    Object.entries(day).forEach(([sid, r]) => { if (!siteOk(sid)) return; any = true; const S1 = bucket(site, sid), P1 = bucket(proj, projOf(sid)); P1.sites.add(sid);
+      Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { name: '(person removed)', cat: 'labour' }; const isC = p.cat !== 'supply'; if (!want(isC ? 'ckc' : 'supply')) return;
+        if (a.s !== 'P' && a.s !== 'WFH') return; const h = Number(a.h || 0), ot = Number(a.ot || 0), hh = h + ot;
+        let c = 0, ok = true; if (cost) { const v = dayCost(p, pid, date, a, o.basis); if (v == null) { ok = false; noRate++; } else c = v; }
+        const k = isC ? 'ckc' : 'sup'; x[k]++; x[k + 'H'] += hh; x[k + 'C'] += c;
+        [S1, P1].forEach(b => { b.ppl++; b[k]++; b.h += hh; b[k + 'C'] += c; if (ok) b.costedH += hh; });
+        if (ok) T.costedH += hh;
+        if (isC) { const e = emp[pid] = emp[pid] || { name: p.name, id: p.empId || '', trade: nm('trades', p.trade), days: 0, h: 0, c: 0, miss: 0 }; e.days++; e.h += hh; e.c += c; if (!ok) e.miss++; }
+        else { const cm = bucket(comp, p.company, { kind: 'supply', days: 0, miss: 0 }); cm.days++; cm.h += hh; cm.supC += c; if (!ok) cm.miss++; cm.sites.add(sid); } });
+      if (want('sub')) Object.entries(r.sub || {}).forEach(([cid, n]) => { n = Number(n || 0); if (!n) return; const hh = n * subHours(date);
+        let c = 0, state = 'ok'; if (cost && o.basis !== 'fixed') { const v = companyCost(cid, date, hh, 0); c = v.cost; state = v.state; if (state === 'norate') noRate++; if (state === 'contract') contractH += hh; }
+        x.sub += n; x.subH += hh; x.subC += c; [S1, P1].forEach(b => { b.ppl += n; b.sub += n; b.h += hh; b.subC += c; if (state === 'ok') b.costedH += hh; }); if (state === 'ok' && cost && o.basis !== 'fixed') T.costedH += hh;
+        const cm = bucket(comp, cid, { kind: 'sub', days: 0, miss: 0 }); cm.days += n; cm.h += hh; cm.subC += c; if (state === 'norate') cm.miss++; cm.sites.add(sid); }); });
+    if (any) { dataDays++; x.any = true; } perDay.push(x); ['ckc', 'sup', 'sub', 'ckcH', 'supH', 'subH', 'ckcC', 'supC', 'subC'].forEach(k => T[k] += x[k]);
+  });
+  const lastRow = [...perDay].reverse().find(x => x.any); const lastD = lastRow ? lastRow.date : o.to; const last = lastRow || { ckc: 0, sup: 0, sub: 0 };
+  Object.entries(dayData(lastD)).forEach(([sid, r]) => { if (!siteOk(sid)) return; Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { cat: 'labour' }; if (p.cat !== 'supply' && want('ckc')) st[a.s] = (st[a.s] || 0) + 1; }); });
+  const activeTo = Object.entries(dayData(lastD)).filter(([sid, r]) => siteOk(sid) && (Object.values(r.w || {}).some(a => a.s === 'P' || a.s === 'WFH') || Object.values(r.sub || {}).some(n => n > 0))).length;
+  const selSites = Object.keys(S.sites).filter(siteOk).length;
+  return { perDay, site, proj, comp, emp, st, T, dataDays, noRate, contractH, last, lastD, activeTo, selSites, days: days.length };
+}
+async function runDash() {
+  const o = S.dash; if (!o.from || !o.to || o.from > o.to) { toast('Choose a valid From and To date.'); return; }
+  if (isTK() && datesBetween(o.from, o.to).length > 62) { toast('Timekeepers can view up to 62 days at a time.'); return; }
+  if (monthsBetween(o.from, o.to).length > 60) { toast('Choose 5 years or less.'); return; }
+  o.busy = true; draw();
+  try { await loadRange(o.from, o.to); o.res = computeDash(o); o.ran = JSON.stringify([o.from, o.to, o.proj, o.site, o.show, o.basis]); } catch (e) { fail(e); }
+  o.busy = false; draw();
+}
+function dashQuick(k) { const t = today(); const o = S.dash;
+  if (k === 'today') { o.from = t; o.to = t; } else if (k === '7') { o.from = addDays(t, -6); o.to = t; } else if (k === '30') { o.from = addDays(t, -29); o.to = t; }
+  else if (k === 'month') { o.from = t.slice(0, 8) + '01'; o.to = t; } else if (k === 'all') { o.from = isTK() ? addDays(t, -61) : (S.settings.goLive || addDays(t, -730)); o.to = t; }
+  o.quick = k; runDash(); }
+const aed = v => 'AED ' + Math.round(v).toLocaleString('en-US');
+const r0 = v => Math.round(v).toLocaleString('en-US');
+const r1 = v => (Math.round(v * 10) / 10).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+function vDash() {
+  const o = S.dash, R = o.res, cost = seesCost(); if (!cost) { o.chart = o.chart === 'cost' ? 'people' : o.chart; o.basis = 'both'; } if (!R && !o.busy && !o.auto) { o.auto = true; o.quick = '30'; o.from = addDays(today(), -29); o.to = today(); setTimeout(runDash, 0); }
+  const projects = [...new Set(Object.keys(S.sites).filter(s => !isTK() || tkSites().includes(s)).map(projOf))].sort();
+  const sitesSel = Object.entries(S.sites).filter(([k]) => (!isTK() || tkSites().includes(k)) && (!o.proj || projOf(k) === o.proj)).sort(byName);
+  const sel = (id, v, opts, lab) => `<div class="field" style="margin:0"><label for="${id}">${lab}</label><select class="inp" id="${id}" data-c="dash" data-f="${id.slice(2)}">${opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+  const stale = R && o.ran !== JSON.stringify([o.from, o.to, o.proj, o.site, o.show, o.basis]);
+  const filters = `<div class="card no-print"><div class="row" style="gap:12px;align-items:flex-end">
+      <div class="field" style="margin:0"><label for="d_from">From</label><input class="inp" type="date" id="d_from" data-c="dash" data-f="from" value="${o.from}" max="${today()}" style="width:auto"></div>
+      <div class="field" style="margin:0"><label for="d_to">To</label><input class="inp" type="date" id="d_to" data-c="dash" data-f="to" value="${o.to}" max="${today()}" style="width:auto"></div>
+      ${sel('d_proj', o.proj, [['', 'All projects'], ...projects.map(p => [p, p])], 'Project')}
+      ${sel('d_site', o.site, [['', 'All sites'], ...sitesSel.map(([k, s]) => [k, s.name])], 'Site')}
+      ${sel('d_show', o.show, SHOW, 'Show')}
+      ${cost ? sel('d_basis', o.basis, [['both', 'Fixed + variable cost'], ['fixed', 'Fixed cost only'], ['variable', 'Variable cost only']], 'Cost') : ''}
+      <button class="btn fill" data-a="runDash" ${o.busy ? 'disabled' : ''}>${o.busy ? 'Working…' : 'Show'}</button></div>
+    <div class="row" style="gap:8px;margin-top:14px"><span class="mmeta" style="margin-right:4px">Quick range</span>${[['today', 'Today'], ['7', 'Last 7 days'], ['30', 'Last 30 days'], ['month', 'This month'], ['all', 'All data']].map(([k, l]) => `<button class="btn ${o.quick === k ? 'tonal' : 'out'} sm" data-a="dashQuick" data-v="${k}">${l}</button>`).join('')}</div></div>`;
+  if (!R) return ph('Dashboard', isTK() ? 'Your sites: people and man-hours.' : 'Deployment, man-hours and labour cost for any period, built from the site registers.') + filters + `<div class="card"><div class="empty"><b>${o.busy ? 'Working…' : 'Choose a period'}</b>${o.busy ? '' : 'Pick a quick range or dates, then Show.'}</div></div>`;
+  const T = R.T, L = R.last; const ppl = T.ckc + T.sup + T.sub; const avg = R.dataDays ? ppl / R.dataDays : 0; const hrs = T.ckcH + T.supH + T.subH; const tc = T.ckcC + T.supC + T.subC;
+  const tile = (l, v, s, hi) => `<div class="tile" ${hi ? 'style="border-top:3px solid var(--primary)"' : ''}><div class="l">${l}</div><div class="v" style="font-size:${String(v).length > 9 ? 24 : 30}px;white-space:nowrap">${v}</div><div class="s">${s}</div></div>`;
+  const tiles = [tile('People on ' + fmtD(R.lastD).replace(/ \d{4}$/, '') + (R.lastD !== o.to ? ' (latest)' : ''), r0(L.ckc + L.sup + L.sub), 'CKC ' + L.ckc + ' · supply ' + L.sup + ' · sub ' + L.sub + ' · avg ' + r0(avg) + '/day', true),
+    tile('Man-hours', r0(hrs), R.days + ' days · ' + fmtD(o.from).replace(/ \d{4}$/, '') + ' to ' + fmtD(o.to).replace(/ \d{4}$/, ''))]
+    .concat(cost ? [tile('Total cost', aed(tc), 'CKC ' + r0(T.ckcC) + ' · supply ' + r0(T.supC) + ' · sub ' + r0(T.subC)), tile('Cost per man-hour', T.costedH ? 'AED ' + r1(tc / T.costedH) : '—', 'hours with a rate on record')] : [])
+    .concat([tile('Active sites', R.activeTo, 'of ' + R.selSites + ' selected on ' + fmtD(R.lastD).replace(/ \d{4}$/, ''))]);
+  const ckcTot = Object.values(R.st).reduce((a, b) => a + b, 0);
+  const status = `<div class="card"><h2>CKC staff status</h2><p class="sub">On ${new Date(R.lastD + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, out of ${ckcTot} CKC people recorded in the registers.</p>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">${STAT.map(([c, l]) => `<div class="tile" style="padding:12px 14px;background:var(--surface2);border:0"><div class="v" style="font-size:24px;margin:0">${R.st[c] || 0}</div><div class="s" style="color:var(--muted)">${l} · ${ckcTot ? Math.round((R.st[c] || 0) / ckcTot * 100) : 0}%</div></div>`).join('')}</div></div>`;
+  const dd = R.dataDays || 1;
+  const projRows = Object.entries(R.proj).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => { const c = x.ckcC + x.supC + x.subC; return `<tr><td>${esc(k)}</td><td class="num">${x.sites.size}</td><td class="num">${r1(x.ppl / dd)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${r0(x.ckcC)}</td><td class="num">${r0(x.supC)}</td><td class="num">${r0(x.subC)}</td><td class="num"><b>${r0(c)}</b></td><td class="num">${x.costedH ? r1(c / x.costedH) : '—'}</td>` : ''}</tr>`; }).join('');
+  const siteRows = Object.entries(R.site).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => `<tr><td>${esc(nm('sites', k))}</td><td class="num">${r1(x.ppl / dd)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${r0(x.ckcC)}</td><td class="num">${r0(x.supC + x.subC)}</td><td class="num"><b>${r0(x.ckcC + x.supC + x.subC)}</b></td>` : ''}</tr>`).join('');
+  const compRows = Object.entries(R.comp).sort((a, b) => b[1].days - a[1].days).map(([k, x]) => { const b = coBasis(k); const r = crateFor(k, o.to.slice(0, 7)); const c = x.supC + x.subC;
+    return `<tr><td>${esc(nm('companies', k))}</td><td>${chip(x.kind === 'sub' ? 'pri' : 'warn', x.kind === 'sub' ? 'Subcontract' : 'Supply')}</td><td class="num">${r0(x.days)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${b === 'contract' ? '<span class="mmeta">Contract</span>' : r && r.r != null ? r1(r.r) + ' / ' + (r.u === 'day' ? 'day' : 'hour') : '<span class="chip warn plain">no rate</span>'}</td><td class="num"><b>${b === 'contract' ? '<span class="mmeta">not costed</span>' : r0(c)}</b>${x.miss ? ' <span class="chip warn plain">' + x.miss + ' no rate</span>' : ''}</td>` : ''}</tr>`; }).join('');
+  const empRows = Object.values(R.emp).sort((a, b) => b.c - a.c || b.h - a.h).map(e => `<tr><td>${esc(e.name)} <span class="mmeta">${esc(e.id)}</span></td><td>${esc(e.trade)}</td><td class="num">${e.days}</td><td class="num">${r0(e.h)}</td><td class="num">${e.h && !e.miss ? r1(e.c / e.h) : '—'}</td><td class="num"><b>${r0(e.c)}</b>${e.miss ? ' <span class="chip warn plain">' + e.miss + ' no rate</span>' : ''}</td></tr>`).join('');
+  const chartOpts = [['people', 'People'], ['hours', 'Man-hours']].concat(cost ? [['cost', 'Cost (AED)']] : []);
+  return ph('Dashboard', isTK() ? 'Your sites: people and man-hours. Cost is not shown to timekeepers.' : 'Deployment, man-hours and labour cost for any period, built from the site registers.', `<div class="row no-print">${R ? '<button class="btn tonal" data-a="dashPdf">Download PDF</button>' : ''}<button class="btn text" data-a="print">Print</button></div>`) + filters +
+    (stale ? '<div class="banner warn no-print">Filters changed. Click Show to update.</div>' : '') +
+    `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">${tiles.join('')}</div>` +
+    (cost && R.noRate ? `<div class="banner warn mt">${R.noRate} person-days or company-days have no rate on record, so cost is understated. Add the missing rates under Costs and rates.</div>` : '') +
+    `<div class="grid g2 mt"><div class="card" style="margin:0"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h2>Per day</h2><p class="sub">${R.days} days, ${fmtD(o.from)} to ${fmtD(o.to)}.</p></div>
+       <select class="inp no-print" data-c="dashChart" style="width:auto" aria-label="Chart shows">${chartOpts.map(([k, l]) => `<option value="${k}" ${o.chart === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+       <div style="position:relative;height:300px"><canvas id="chDay" role="img" aria-label="Per-day chart"></canvas></div></div>
+     <div class="card" style="margin:0"><h2>Average per site</h2><p class="sub">People per day, averaged over the ${R.dataDays} days with registers.</p><div style="position:relative;height:${Math.max(200, Object.keys(R.site).length * 30 + 60)}px"><canvas id="chSite" role="img" aria-label="Average people per site"></canvas></div></div></div>` +
+    status +
+    `<div class="card"><h2>By project</h2><p class="sub">A project is a group of sites, set under People and sites.</p>${projRows ? `<div class="tw"><table><thead><tr><th>Project</th><th class="num">Sites</th><th class="num">Avg people/day</th><th class="num">Man-hours</th>${cost ? '<th class="num">CKC cost</th><th class="num">Supply cost</th><th class="num">Sub cost</th><th class="num">Total cost</th><th class="num">AED / man-hour</th>' : ''}</tr></thead><tbody>${projRows}</tbody></table></div>` : '<div class="empty"><b>No register entries in this period</b></div>'}</div>` +
+    `<div class="card"><h2>By site</h2><p class="sub">People are averaged per day. Man-hours${cost ? ' and cost are' : ' are'} totals for the dates chosen.</p>${siteRows ? `<div class="tw"><table><thead><tr><th>Site</th><th class="num">Avg people/day</th><th class="num">Man-hours</th>${cost ? '<th class="num">CKC cost</th><th class="num">Supply + sub cost</th><th class="num">Total cost</th>' : ''}</tr></thead><tbody>${siteRows}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>` +
+    `<div class="card"><h2>Supply and subcontract companies</h2><p class="sub">Labour days = people counted per day. Subcontract man-hours = headcount × standard hours of that day.${cost ? ' Rates come from Costs and rates; contract subcontractors are not costed here.' : ''}</p>${compRows ? `<div class="tw"><table><thead><tr><th>Company</th><th>Type</th><th class="num">Labour days</th><th class="num">Man-hours</th>${cost ? '<th class="num">Rate (AED)</th><th class="num">Cost</th>' : ''}</tr></thead><tbody>${compRows}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>` +
+    (cost ? `<div class="card"><div class="row" style="gap:8px"><h2>Cost per CKC employee</h2>${chip('warn', 'Restricted')}</div><p class="sub">Hours worked on the selected sites × hourly cost (monthly cost ÷ standard hours in that month). Timekeepers can never open this; the database refuses it.</p>${empRows ? `<div class="tw" style="max-height:480px;overflow:auto"><table><thead><tr><th>Employee</th><th>Trade</th><th class="num">Days</th><th class="num">Hours</th><th class="num">AED / hour</th><th class="num">Cost (AED)</th></tr></thead><tbody>${empRows}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>` : '');
+}
+async function drawDashCharts() {
+  dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = [];
+  const R = S.dash.res; if (!R || !$('#chDay')) return; if (!seesCost() && S.dash.chart === 'cost') S.dash.chart = 'people';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js'); } catch (e) { return; }
+  if (!$('#chDay') || !window.Chart) return;
+  const k = S.dash.chart, suf = k === 'hours' ? 'H' : k === 'cost' ? 'C' : '';
+  const col = { ckc: '#1a73e8', sup: '#f9ab00', sub: '#8ab4f8' }, lab = { ckc: 'CKC', sup: 'Supply labour', sub: 'Subcontractors' };
+  const font = { family: "Roboto, system-ui, sans-serif", size: 11 };
+  const base = { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { position: 'bottom', labels: { font, boxWidth: 12 } }, tooltip: { mode: 'index', intersect: false } } };
+  dashCharts.push(new window.Chart($('#chDay'), { type: 'bar', data: { labels: R.perDay.map(x => new Date(x.date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })),
+    datasets: ['ckc', 'sup', 'sub'].map(s => ({ label: lab[s], data: R.perDay.map(x => Math.round(x[s + suf])), backgroundColor: col[s], borderWidth: 0 })) },
+    options: Object.assign({}, base, { scales: { x: { stacked: true, ticks: { font, maxRotation: 0, autoSkip: true }, grid: { display: false } }, y: { stacked: true, ticks: { font }, title: { display: true, text: k === 'cost' ? 'AED' : k === 'hours' ? 'Man-hours' : 'People', font } } } }) }));
+  const sites = Object.entries(R.site).sort((a, b) => b[1].ppl - a[1].ppl); const dd = R.dataDays || 1;
+  dashCharts.push(new window.Chart($('#chSite'), { type: 'bar', data: { labels: sites.map(([sid]) => nm('sites', sid)), datasets: ['ckc', 'sup', 'sub'].map(s => ({ label: lab[s], data: sites.map(([, x]) => Math.round(x[s] / dd * 10) / 10), backgroundColor: col[s], borderWidth: 0 })) },
+    options: Object.assign({}, base, { indexAxis: 'y', scales: { x: { stacked: true, ticks: { font } }, y: { stacked: true, ticks: { font }, grid: { display: false } } } }) }));
+}
+async function dashPdf() {
+  const o = S.dash, R = o.res; if (!R) return; const cost = seesCost(); const T = R.T; const dd = R.dataDays || 1;
+  const hrs = T.ckcH + T.supH + T.subH, tc = T.ckcC + T.supC + T.subC, L = R.last;
+  const scope = (o.proj ? o.proj : 'All projects') + (o.site ? ' · ' + nm('sites', o.site) : '') + ' · ' + (SHOW.find(s => s[0] === o.show) || ['', ''])[1] + (cost ? ' · ' + (o.basis === 'both' ? 'fixed + variable cost' : o.basis + ' cost only') : '');
+  const sum = 'People on ' + fmtD(R.lastD) + ': ' + (L.ckc + L.sup + L.sub) + ' (CKC ' + L.ckc + ', supply ' + L.sup + ', sub ' + L.sub + ') · man-hours ' + r0(hrs) + (cost ? ' · total cost ' + aed(tc) + ' · AED ' + (T.costedH ? r1(tc / T.costedH) : '—') + ' per man-hour' : '') + ' · active sites ' + R.activeTo + ' of ' + R.selSites + (cost && R.noRate ? ' · ' + R.noRate + ' days without a rate (cost understated)' : '');
+  try {
+    const P = await pdfDoc('Manpower dashboard · ' + fmtD(o.from) + ' to ' + fmtD(o.to), scope + '\n' + sum);
+    let y = 36; const cv = $('#chDay');
+    if (cv) { try { const img = cv.toDataURL('image/png'); P.doc.addImage(img, 'PNG', P.m, y, 170, 62); y += 66; } catch (e) {} }
+    const bold = n => ({ didParseCell: d => { if (d.section === 'head') return; } });
+    y = P.table(y, ['Project', 'Sites', 'Avg people/day', 'Man-hours'].concat(cost ? ['CKC cost', 'Supply cost', 'Sub cost', 'Total cost', 'AED/man-hour'] : []),
+      Object.entries(R.proj).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => { const c = x.ckcC + x.supC + x.subC; return [k, String(x.sites.size), r1(x.ppl / dd), r0(x.h)].concat(cost ? [r0(x.ckcC), r0(x.supC), r0(x.subC), r0(c), x.costedH ? r1(c / x.costedH) : '—'] : []); }), { columnStyles: numAlign(cost ? 9 : 4) });
+    y = P.table(y + 6, ['Site', 'Avg people/day', 'Man-hours'].concat(cost ? ['CKC cost', 'Supply + sub cost', 'Total cost'] : []),
+      Object.entries(R.site).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => [nm('sites', k), r1(x.ppl / dd), r0(x.h)].concat(cost ? [r0(x.ckcC), r0(x.supC + x.subC), r0(x.ckcC + x.supC + x.subC)] : [])), { columnStyles: numAlign(cost ? 6 : 3) });
+    y = P.table(y + 6, ['Company', 'Type', 'Labour days', 'Man-hours'].concat(cost ? ['Rate (AED)', 'Cost'] : []),
+      Object.entries(R.comp).sort((a, b) => b[1].days - a[1].days).map(([k, x]) => { const b = coBasis(k), r = crateFor(k, o.to.slice(0, 7)); return [nm('companies', k), x.kind === 'sub' ? 'Subcontract' : 'Supply', r0(x.days), r0(x.h)].concat(cost ? [b === 'contract' ? 'Contract' : r && r.r != null ? r1(r.r) + ' / ' + (r.u === 'day' ? 'day' : 'hour') : 'no rate', b === 'contract' ? 'not costed' : r0(x.supC + x.subC)] : []); }), { columnStyles: numAlign(cost ? 6 : 4) });
+    if (cost && Object.keys(R.emp).length) P.table(y + 6, ['Employee', 'ID', 'Trade', 'Days', 'Hours', 'AED/hour', 'Cost (AED)'],
+      Object.values(R.emp).sort((a, b) => b.c - a.c).map(e => [e.name, e.id, e.trade, String(e.days), r0(e.h), e.h && !e.miss ? r1(e.c / e.h) : '—', r0(e.c) + (e.miss ? ' (' + e.miss + ' no rate)' : '')]), { columnStyles: { 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } } });
+    P.finish('PEH-dashboard-' + o.from + '-to-' + o.to + '.pdf'); log('Dashboard PDF downloaded', o.from + ' to ' + o.to);
   } catch (e) { toast(e.message || 'Could not make the PDF.'); }
 }
 
@@ -1137,18 +1302,18 @@ const ACT = {
   regDrop: b => { delete S.reg.draft.w[b.dataset.v]; S.reg.edited = true; draw(); },
   addWorker: () => { const k = $('#addW').value; if (!k) return; S.reg.draft.w[k] = { s: 'P', h: stdDay(S.reg.date), ot: 0 }; S.reg.edited = true; draw(); },
   addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
-  runReport, repQuick: b => repQuick(b.dataset.v), repPdf: reportPdf, mpPdf: manpowerPdf,
+  runReport, repQuick: b => repQuick(b.dataset.v), repPdf: reportPdf, mpPdf: manpowerPdf, runDash, dashQuick: b => dashQuick(b.dataset.v), dashPdf,
   repCsv: () => { const o = S.rep, R = o.res; if (!R) return; const cost = seesCost(); const lab = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
-    const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days', 'Subcontract man-days'].concat(cost ? ['Labour cost (AED)', 'Days without rate'] : []);
-    const ln = (x, t) => [t || x.label, Math.round(x.md * 10) / 10, Math.round(x.h * 10) / 10, Math.round(x.ot * 10) / 10, x.abs, x.lv, x.sub].concat(cost ? [Math.round(x.cost), x.miss] : []);
+    const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days', 'Subcontract man-days'].concat(cost ? ['CKC + supply cost (AED)', 'Subcontract cost (AED)', 'Total cost (AED)', 'AED per man-hour', 'Days without rate'] : []);
+    const ln = (x, t) => [t || x.label, Math.round(x.md * 10) / 10, Math.round(x.h * 10) / 10, Math.round(x.ot * 10) / 10, x.abs, x.lv, x.sub].concat(cost ? [Math.round(x.cost), Math.round(x.subC), Math.round(x.cost + x.subC), x.costedH ? Math.round((x.cost + x.subC) / x.costedH * 10) / 10 : '', x.miss] : []);
     csvDownload('PEH-report-' + o.by + '-' + o.from + '-to-' + o.to + '.csv', [['PEH report', lab, o.from + ' to ' + o.to, cost ? 'Cost basis: ' + o.basis : ''], [], hd, ...R.list.map(x => ln(x)), ln(R.tot, 'Total')]); log('Report downloaded', lab + ' · ' + o.from + ' to ' + o.to); },
   ppTab: b => { S.pp.tab = b.dataset.v; draw(); },
   editPerson: b => editPerson(b.dataset.v), editMaster: b => editMaster(b.dataset.v),
   tplPeople: () => csvDownload('PEH-people-template.csv', [PEOPLE_COLS, ['E1001', 'Sample Name', 'labour', 'Mason', 'Projects', 'Mason', 'Sample site', '', 'active', '2026-01-15']]),
   tplRates: () => csvDownload('PEH-monthly-cost-template.csv', [['emp_id', 'month', 'fixed', 'variable'], ['E1001', S.cr.month, '0', '0']]),
-  saveRates, saveSrates,
-  saveHours: () => { const wd = num($('#hWd').value), sat = num($('#hSat').value), otf = num($('#hOtf').value); if ([wd, sat, otf].some(v => v == null || Number.isNaN(v) || v < 0) || wd > 24 || sat > 24 || otf > 5) { toast('Check the hours and overtime factor.'); return; }
-    set(ref(db, 'settings/hours'), { wd, sat, otf }).then(() => { log('Working hours saved', wd + ' / ' + sat + ' h, OT x' + otf); toast('Saved'); }).catch(fail); },
+  saveRates, saveCrates,
+  saveHours: () => { const wd = num($('#hWd').value), sat = num($('#hSat').value), otf = num($('#hOtf').value), sotf = num($('#hSotf').value); if ([wd, sat, otf, sotf].some(v => v == null || Number.isNaN(v) || v < 0) || wd > 24 || sat > 24 || otf > 5 || sotf > 5) { toast('Check the hours and overtime factors.'); return; }
+    set(ref(db, 'settings/hours'), { wd, sat, otf, sotf }).then(() => { log('Working hours saved', wd + ' / ' + sat + ' h, OT x' + otf + ', company OT x' + sotf); toast('Saved'); }).catch(fail); },
   closeMonth: () => { const M = S.cr.month, on = !isClosed(M); if (!confirm((on ? 'Close ' : 'Re-open ') + M + '? ' + (on ? 'Timekeepers will no longer be able to change its registers.' : 'Timekeepers can edit recent registers again.'))) return;
     (on ? set(ref(db, 'closed/' + M), true) : remove(ref(db, 'closed/' + M))).then(() => { log(on ? 'Month closed' : 'Month re-opened', M); toast(on ? 'Closed' : 'Re-opened'); }).catch(fail); }
 };
@@ -1162,6 +1327,8 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
   else if (c === 'regSub') { const v = num(t.value); S.reg.draft.sub[t.dataset.k] = Number.isNaN(v) || v == null ? 0 : Math.max(0, Math.round(v)); S.reg.edited = true; draw(); }
   else if (c === 'mpDate') { S.mp.date = t.value || today(); draw(); }
   else if (c === 'rep') { S.rep[t.dataset.f] = t.value; draw(); }
+  else if (c === 'dash') { S.dash[t.dataset.f] = t.value; S.dash.quick = ''; if (t.dataset.f === 'proj') S.dash.site = ''; draw(); }
+  else if (c === 'dashChart') { S.dash.chart = t.value; drawDashCharts(); }
   else if (c === 'ppQ') { S.pp.q = t.value; draw(); } else if (c === 'ppCat') { S.pp.cat = t.value; draw(); } else if (c === 'ppSite') { S.pp.site = t.value; draw(); }
   else if (c === 'importPeople') importPeople(t); else if (c === 'importRates') importRates(t);
   else if (c === 'crMonth') { S.cr.month = t.value || S.cr.month; draw(); } });
