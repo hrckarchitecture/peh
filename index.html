@@ -1,0 +1,1171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>People Excellence Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
+<style>
+/* PEH v2. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+:root{
+  --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
+  --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
+  --primary:#1a73e8;--on-primary:#ffffff;--primary-soft:#d3e3fd;--on-soft:#0842a0;
+  --good:#137333;--good-bg:#e6f4ea;--warn:#8a5300;--warn-bg:#fef3d6;--bad:#c5221f;--bad-bg:#fce8e6;--neu:#444746;--neu-bg:#eef1f5;
+  --shadow:0 1px 2px rgba(60,64,67,.12),0 2px 6px 2px rgba(60,64,67,.06);
+  --f:'Google Sans','Roboto',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+  --fb:'Roboto',system-ui,-apple-system,'Segoe UI',Arial,sans-serif;
+  color-scheme:light;
+}
+html,body{background:#f8fafd;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 var(--fb);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f);font-weight:400;margin:0;letter-spacing:0}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+a{color:var(--primary)}
+
+/* sign-in */
+.gate{min-height:100%;display:grid;place-items:center;padding:24px}
+.gate-card{width:100%;max-width:440px;background:var(--surface);border:1px solid var(--line);border-radius:28px;padding:40px 36px}
+.mark{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font:500 18px var(--f);color:#fff;
+  background:conic-gradient(from 210deg,#1a73e8,#34a853,#fbbc04,#ea4335,#1a73e8)}
+.gate-card h1{font-size:28px;margin:20px 0 6px}
+.gate-card p.lead{color:var(--muted);margin:0 0 28px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:16px}
+.field label{font-size:12px;font-weight:500;color:var(--muted)}
+.inp,select.inp,textarea.inp{width:100%;background:var(--surface);border:1px solid #747775;border-radius:8px;padding:12px 14px;min-width:0}
+.inp:focus{border-color:var(--primary);outline:1px solid var(--primary)}
+textarea.inp{min-height:84px;resize:vertical}
+.msg{font-size:13px;margin-top:12px;min-height:20px}
+.msg.err{color:var(--bad)} .msg.ok{color:var(--good)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:100px;padding:9px 22px;font:500 14px var(--f);cursor:pointer;white-space:nowrap;text-decoration:none}
+.btn.fill{background:var(--primary);color:var(--on-primary)} .btn.fill:hover{box-shadow:var(--shadow)}
+.btn.tonal{background:var(--primary-soft);color:var(--on-soft)} .btn.tonal:hover{filter:brightness(.97)}
+.btn.out{background:transparent;border:1px solid #747775;color:var(--primary)} .btn.out:hover{background:var(--hover)}
+.btn.text{background:transparent;color:var(--primary);padding:9px 12px} .btn.text:hover{background:var(--hover)}
+.btn.danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
+.btn.sm{padding:6px 14px;font-size:13px}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+.icon-btn{width:36px;height:36px;border-radius:50%;border:0;background:transparent;display:inline-grid;place-items:center;cursor:pointer;color:var(--muted)}
+.icon-btn:hover{background:var(--hover)}
+.icon-btn svg{width:20px;height:20px;fill:currentColor}
+
+/* shell */
+.top{height:64px;display:flex;align-items:center;gap:14px;padding:0 16px 0 20px;background:var(--bg);position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand b{font:400 22px var(--f);white-space:nowrap}
+.brand .short{display:none}
+.brand small{display:block;color:var(--muted);font-size:12px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .sp{flex:1}
+.who{display:flex;align-items:center;gap:10px}
+.role-chip{font-size:12px;font-weight:500;border-radius:8px;padding:4px 10px;background:var(--surface2);color:var(--muted)}
+.avatar{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e8710a;color:#fff;font:500 14px var(--f);flex:none}
+.menu-btn{display:none}
+.shell{display:grid;grid-template-columns:232px minmax(0,1fr);min-height:calc(100% - 64px)}
+.rail{padding:8px 12px 24px;display:flex;flex-direction:column;gap:2px}
+.rail button{display:flex;align-items:center;gap:14px;width:100%;border:0;background:transparent;border-radius:100px;padding:0 18px;height:44px;cursor:pointer;color:var(--text);font:500 14px var(--f);text-align:left}
+.rail button:hover{background:var(--hover)}
+.rail button[aria-current="page"]{background:var(--primary-soft);color:var(--on-soft)}
+.rail svg{width:20px;height:20px;fill:currentColor;flex:none}
+.rail .grp{font-size:11px;font-weight:500;color:var(--faint);padding:16px 18px 6px;letter-spacing:.4px;text-transform:uppercase}
+.rail .count{margin-left:auto;font-size:12px;font-weight:500}
+main{padding:8px 24px 48px;min-width:0}
+.page{max-width:1180px;margin:0 auto}
+.ph{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin:8px 0 20px}
+.ph h1{font-size:28px;line-height:36px}
+.ph p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.card{background:var(--surface);border-radius:16px;border:1px solid var(--line);padding:20px;min-width:0}
+.card+.card{margin-top:16px}
+.card h2{font-size:18px;line-height:24px;margin-bottom:4px}
+.card .sub{color:var(--muted);font-size:13px;margin:0 0 16px}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px 20px}
+.tile .l{color:var(--muted);font-size:13px}
+.tile .v{font:400 32px/1.2 var(--f);margin:6px 0 2px;font-variant-numeric:tabular-nums}
+.tile .s{color:var(--faint);font-size:12px}
+.mt{margin-top:16px}
+
+/* chips & tables */
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:500;white-space:nowrap;background:var(--neu-bg);color:var(--neu)}
+.chip::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.plain::before{display:none}
+.chip.good{background:var(--good-bg);color:var(--good)} .chip.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.bad{background:var(--bad-bg);color:var(--bad)} .chip.pri{background:var(--primary-soft);color:var(--on-soft)}
+.tw{overflow-x:auto;margin:0 -4px;padding:0 4px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{text-align:left;font-weight:500;font-size:12px;color:var(--muted);padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:12px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:color-mix(in srgb,var(--hover) 45%,transparent)}
+td.num,th.num{text-align:right;white-space:nowrap}
+.mname{font-weight:500}
+.mmeta{color:var(--faint);font-size:12px;margin-top:2px}
+td .inp{padding:8px 10px;border-color:var(--line)}
+td .inp.n{width:96px;text-align:right}
+td .inp.ev{min-width:150px}
+.ownerline{display:flex;align-items:center;gap:12px;min-width:0}
+.ownerline b{display:block;font-weight:500}
+.ownerline small{color:var(--muted);font-size:12px}
+.av2{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font:500 14px var(--f);flex:none;color:#fff}
+
+/* scorecards */
+.people{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 14px;margin-bottom:2px}
+.people button{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:100px;padding:4px 14px 4px 4px;cursor:pointer;white-space:nowrap;font:500 14px var(--f);color:var(--text)}
+.people button:hover{background:var(--hover)}
+.people button[aria-pressed="true"]{background:var(--primary-soft);color:var(--on-soft);border-color:transparent}
+.people .av2{width:28px;height:28px;font-size:12px}
+.people small{font:400 12px var(--fb);color:var(--muted)}
+.olist{display:flex;flex-direction:column;gap:4px}
+.olist button{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:0;background:transparent;border-radius:12px;padding:10px;cursor:pointer}
+.olist button:hover{background:var(--hover)}
+.olist button[aria-pressed="true"]{background:var(--primary-soft);color:var(--on-soft)}
+.olist .meta{margin-left:auto;font-size:12px;color:var(--muted)}
+.hero{display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between}
+.hero .av2{width:56px;height:56px;font-size:20px}
+.hero h2{font-size:24px;line-height:32px;margin:0}
+.outcome{font:400 18px/1.5 var(--f);margin:18px 0 0;padding:16px 18px;background:var(--surface2);border-radius:12px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:20px 0 16px;overflow-x:auto}
+.tabs button{border:0;background:transparent;padding:12px 16px;cursor:pointer;color:var(--muted);font:500 14px var(--f);border-bottom:3px solid transparent;border-radius:0;white-space:nowrap}
+.tabs button[aria-selected="true"]{color:var(--primary);border-bottom-color:var(--primary)}
+.pbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid #747775;border-radius:100px;overflow:hidden}
+.seg button{border:0;background:transparent;padding:7px 16px;cursor:pointer;font:500 13px var(--f);color:var(--text)}
+.seg button+button{border-left:1px solid #747775}
+.seg button[aria-pressed="true"]{background:var(--primary-soft);color:var(--on-soft)}
+.plabel{font:500 15px var(--f);min-width:200px;text-align:center}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.cols3 h3,.dep h3{font-size:14px;font-weight:500;margin:0 0 8px}
+.bul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px}
+.dep{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.lnk{border:0;background:none;padding:0;color:var(--primary);font-weight:500;cursor:pointer}
+.note{font-size:12.5px;color:var(--muted);margin-top:12px}
+.banner{display:flex;gap:12px;align-items:flex-start;border-radius:12px;padding:12px 16px;background:var(--surface2);color:var(--text);margin-bottom:16px;font-size:13.5px}
+.banner.warn{background:var(--warn-bg);color:var(--warn)}
+.empty{text-align:center;color:var(--muted);padding:36px 12px}
+.empty b{display:block;font:400 18px var(--f);color:var(--text);margin-bottom:6px}
+.pre{white-space:pre-line}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 16px}
+.form-grid .full{grid-column:1/-1}
+.chk{display:flex;gap:10px;align-items:center;font-size:14px;padding:6px 0}
+.chk input{width:18px;height:18px;accent-color:var(--primary)}
+
+/* modal + toast */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.32);display:grid;place-items:center;padding:16px;z-index:50}
+.dialog{background:var(--surface);border-radius:28px;width:100%;max-width:640px;max-height:90vh;overflow:auto;padding:24px}
+.dialog h2{font-size:24px;margin-bottom:16px}
+.dialog .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:16px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#303030;color:#f2f2f2;border-radius:8px;padding:12px 18px;font-size:14px;box-shadow:var(--shadow);z-index:60;max-width:90vw}
+
+@media (max-width:960px){
+  .shell{grid-template-columns:minmax(0,1fr)}
+  .rail{position:fixed;top:64px;left:0;bottom:0;width:272px;background:var(--surface);z-index:30;box-shadow:var(--shadow);transform:translateX(-105%);transition:transform .2s}
+  .rail.open{transform:none}
+  .menu-btn{display:inline-grid}
+  .g2,.g3,.cols3,.dep,.form-grid{grid-template-columns:minmax(0,1fr)}
+  main{padding:8px 14px 40px}
+  .g4{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px} .tile{padding:12px 14px} .tile .v{font-size:26px}
+  .regtbl thead{display:none} .regtbl tbody tr{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) auto;gap:6px 8px;padding:12px 0;border-bottom:1px solid var(--line);align-items:end}
+  .regtbl td{border:0;padding:0;text-align:left} .regtbl td:first-child{grid-column:1/-1} .regtbl td[data-l]::before{content:attr(data-l);display:block;font-size:11px;color:var(--muted);margin-bottom:2px}
+  .regtbl select,.regtbl input{width:100%!important;min-width:0!important}
+  .ph h1{font-size:24px;line-height:30px}
+
+  .brand small{display:none} .brand .full{display:none} .brand .short{display:inline} .top{gap:8px;padding:0 8px 0 4px}
+  .role-chip{display:none}
+}
+@media print{.top,.rail,.no-print{display:none!important}.shell{display:block}main{padding:0}.card{break-inside:avoid}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="boot" class="gate"><div class="gate-card"><div class="mark">P</div><h1>People Excellence Hub</h1><p class="lead" id="bootMsg">Loading…</p></div></div>
+
+<div id="gate" class="gate" hidden>
+  <div class="gate-card">
+    <div class="mark">P</div>
+    <h1>Sign in</h1>
+    <p class="lead">People Excellence Hub · use your company email</p>
+    <div class="field"><label for="em">Email</label><input class="inp" id="em" type="email" autocomplete="username"></div>
+    <div class="field"><label for="pw">Password</label><input class="inp" id="pw" type="password" autocomplete="current-password"></div>
+    <div class="row" style="justify-content:space-between;margin-top:8px">
+      <button class="btn text" data-a="forgot">Forgot password?</button>
+      <button class="btn fill" id="signBtn" data-a="signin">Sign in</button>
+    </div>
+    <div class="msg" id="gateMsg"></div>
+  </div>
+</div>
+
+<div id="pending" class="gate" hidden>
+  <div class="gate-card">
+    <div class="mark">P</div>
+    <h1>Access requested</h1>
+    <p class="lead">You are signed in as <b id="pendEmail"></b>. HR has been told you signed in and will give you access. Please check again later.</p>
+    <button class="btn out" data-a="signout">Sign out</button>
+  </div>
+</div>
+
+<div id="app" hidden>
+  <header class="top">
+    <button class="icon-btn menu-btn" data-a="menu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg></button>
+    <div class="brand"><div class="mark">P</div><div style="min-width:0"><b><span class="full">People Excellence Hub</span><span class="short">PEH</span></b><small>CK Architecture Interiors · CKC Building Contracting</small></div></div>
+    <div class="sp"></div>
+    <div class="who"><span class="role-chip" id="roleChip"></span><span class="avatar" id="avatar" title=""></span>
+      <button class="btn text sm" data-a="signout">Sign out</button></div>
+  </header>
+  <div class="shell">
+    <nav class="rail" id="rail" aria-label="Sections"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+<div id="modal"></div>
+<div id="toast" class="toast" hidden></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, update, push, remove, get, query, limitToLast, orderByChild, equalTo, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+// ── Firebase web settings for the PEH project. These are not passwords; the database rules protect the data.
+// Replace each PASTE_ value with the values from Firebase console > Project settings > Your apps > Web app.
+const FC = {
+  apiKey: "AIzaSyBIBZ5x20LuYoE5vSYXceiJB_yKhR61zGU",
+  authDomain: "people-excellence-hub.firebaseapp.com",
+  databaseURL: "https://people-excellence-hub-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "people-excellence-hub",
+  appId: "1:350956322827:web:7df74f339f3c49598c070e"
+};
+const CONFIGURED = !JSON.stringify(FC).includes('PASTE_');
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => { if (v === '' || v == null) return null; const n = Number(String(v).replace(/,/g, '')); return isFinite(n) ? n : NaN; };
+const fmtN = v => v == null || v === '' ? '—' : Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const fmtAED = v => v == null || v === '' ? '—' : 'AED ' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const fmtDT = ms => ms ? new Date(ms).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+const fmtD = s => s ? new Date(s + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+const ini = n => String(n || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+const AVC = ['#1a73e8', '#188038', '#e8710a', '#a142f4', '#d93025', '#12858f', '#b06000'];
+const avc = k => AVC[[...String(k || '')].reduce((a, c) => a + c.charCodeAt(0), 0) % AVC.length];
+const lines = v => (Array.isArray(v) ? v : Object.values(v || {})).filter(Boolean);
+const ID_RX = /^[A-Za-z0-9_-]{1,40}$/;
+
+const MONEY = { 'Revenue': 1, 'Collections': 1, 'Margin': 1, 'Cost control': 1, 'Cash timing': 1, 'Productivity': 0 };
+const CAUSES = [
+  ['appr', 'Our approval drawings late, or rejected for our errors'],
+  ['client', 'Client or consultant response'],
+  ['site', 'Site works or subcontractors'],
+  ['supply', 'Material supply'],
+  ['info', 'Brief or site information arrived late']
+];
+const causeName = k => (CAUSES.find(c => c[0] === k) || [k, k])[1];
+
+// ── periods: weekly "2026-W44" (Mon–Sun, ISO week) and monthly "2026-M11"
+function isoWeekOf(y, m, d) { const t = new Date(Date.UTC(y, m, d)); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const yy = t.getUTCFullYear(); const w = Math.ceil(((t - Date.UTC(yy, 0, 1)) / 864e5 + 1) / 7); return yy + '-W' + String(w).padStart(2, '0'); }
+function nowWeek() { const n = new Date(); return isoWeekOf(n.getFullYear(), n.getMonth(), n.getDate()); }
+function nowMonth() { const n = new Date(); return n.getFullYear() + '-M' + String(n.getMonth() + 1).padStart(2, '0'); }
+function weekMon(key) { const [y, w] = key.split('-W').map(Number); const j4 = new Date(Date.UTC(y, 0, 4)); const d = j4.getUTCDay() || 7; const mon = new Date(j4); mon.setUTCDate(j4.getUTCDate() - d + 1 + (w - 1) * 7); return mon; }
+function shiftP(key, n) {
+  if (key.includes('-W')) { const d = weekMon(key); d.setUTCDate(d.getUTCDate() + 7 * n); return isoWeekOf(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+  const [y, m] = key.split('-M').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.getUTCFullYear() + '-M' + String(d.getUTCMonth() + 1).padStart(2, '0');
+}
+function pLabel(key) {
+  if (key.includes('-W')) { const a = weekMon(key), b = new Date(a); b.setUTCDate(a.getUTCDate() + 6); const f = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }); return 'Week ' + Number(key.split('-W')[1]) + ' · ' + f(a) + ' – ' + f(b) + ' ' + b.getUTCFullYear(); }
+  const [y, m] = key.split('-M').map(Number); return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+// ── status of one measure in one period
+function ach(t, a, low) { if (low) { if (a <= t) return t > 0 ? Math.min(125, t / Math.max(a, .01) * 100) : 100; return t > 0 ? t / a * 100 : 0; } return t === 0 ? (a >= 0 ? 100 : 0) : Math.min(125, a / t * 100); }
+function status(m, e, ptype) {
+  if (m.b == null || m.b === '' || !m.bOk) return ['', 'Baseline needed'];
+  const t = ptype === 'W' ? m.w : m.mt;
+  if (t == null || t === '') return ['', 'Target needed'];
+  if (!e || e.actual == null) return ['', 'No actual yet'];
+  const p = ach(Number(t), Number(e.actual), !!m.low);
+  return p >= 100 ? ['good', 'On target'] : p >= 80 ? ['warn', 'At risk'] : ['bad', 'Behind'];
+}
+
+// ── state
+const S = { user: null, acc: null, view: '', sel: '', tab: 'results', ptype: 'W', pkey: nowWeek(), dmonth: new Date().toISOString().slice(0, 7),
+  owners: {}, measures: {}, entries: {}, locks: {}, settings: {}, delays: {}, users: {}, access: {}, audit: {}, dirty: false,
+  people: {}, peopleBySite: {}, sites: {}, trades: {}, companies: {}, rates: {}, srates: {}, closed: {} };
+let db, auth, subs = [];
+const isAdmin = () => S.acc && S.acc.role === 'admin';
+const isCeo = () => S.acc && S.acc.role === 'ceo';
+const isHead = () => S.acc && S.acc.role === 'head';
+const isFin = () => !!(S.acc && S.acc.finance === true);
+const myOwner = () => (S.acc && S.acc.ownerId) || '';
+const seesNumbers = o => isAdmin() || isCeo() || isFin() || (isHead() && myOwner() === o);
+const canEnter = o => !!o && ((isHead() && myOwner() === o) || isAdmin()) && !(isHead() && locked(o, S.pkey));
+const locked = (o, p) => !!(S.locks[o] && S.locks[o][p]);
+const ownersSorted = () => Object.entries(S.owners).sort((a, b) => (a[1].order || 99) - (b[1].order || 99) || String(a[1].name).localeCompare(b[1].name));
+const measuresOf = o => Object.entries(S.measures[o] || {}).sort((a, b) => (a[1].order || 99) - (b[1].order || 99));
+
+function toast(t) { const el = $('#toast'); el.textContent = t; el.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => el.hidden = true, 3200); }
+function fail(e) { const c = (e && (e.code || e.message)) || 'unknown error'; toast(/permission|PERMISSION/i.test(c) ? 'Not allowed. Your role cannot change this.' : 'Could not save: ' + c); console.warn(e); }
+function log(action, detail) { if (!S.user) return; push(ref(db, 'audit'), { who: S.user.email, at: Date.now(), action: String(action).slice(0, 80), detail: String(detail || '').slice(0, 300) }).catch(() => {}); }
+function show(id) { ['boot', 'gate', 'pending', 'app'].forEach(x => $('#' + x).hidden = x !== id); }
+
+// ── start
+if (!CONFIGURED) {
+  $('#bootMsg').innerHTML = 'This page is not connected to Firebase yet. Paste the PEH project settings into the <b>FC</b> block near the top of the script, then upload again.';
+} else {
+  const app = initializeApp(FC); db = getDatabase(app); auth = getAuth(app);
+  setPersistence(auth, browserSessionPersistence).catch(() => {});
+  onAuthStateChanged(auth, u => { subs.forEach(f => { try { f(); } catch (e) {} }); subs = []; S.user = u; S.acc = null; if (!u) { show('gate'); return; } watchAccess(u); });
+}
+
+function watchAccess(u) {
+  subs.push(onValue(ref(db, 'access/' + u.uid), snap => {
+    const acc = snap.val();
+    if (!acc || !acc.role) {
+      S.acc = null; $('#pendEmail').textContent = u.email; show('pending');
+      set(ref(db, 'users/' + u.uid), { email: u.email, name: (u.email || '').split('@')[0].replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).slice(0, 100), at: Date.now() }).catch(() => {});
+      return;
+    }
+    const first = !S.acc; S.acc = acc;
+    if (first) startData();
+    if (!S.view) { S.view = isTK() ? 'register' : isHead() ? 'cards' : 'overview'; S.sel = isHead() ? myOwner() : ''; }
+    show('app'); render();
+  }, e => { $('#gateMsg').textContent = 'Could not check your access: ' + (e.code || e.message); show('gate'); }));
+}
+
+function watch(path, apply) { subs.push(onValue(ref(db, path), s => { apply(s.val() || {}); render(); }, e => console.warn('read', path, e && e.code))); }
+function startData() {
+  watch('settings', v => S.settings = v);
+  watch('sites', v => S.sites = v); watch('trades', v => S.trades = v); watch('companies', v => S.companies = v); watch('closed', v => S.closed = v);
+  if (isTK()) {
+    tkSites().forEach(sid => subs.push(onValue(query(ref(db, 'people'), orderByChild('site'), equalTo(sid)), s => { S.peopleBySite[sid] = s.val() || {}; S.people = Object.assign({}, ...Object.values(S.peopleBySite)); render(); }, e => console.warn('people', e && e.code))));
+    return;
+  }
+  watch('owners', v => S.owners = v);
+  watch('locks', v => S.locks = v);
+  watch('delays', v => S.delays = v);
+  if (isAdmin() || isCeo() || isFin()) { watch('measures', v => S.measures = v); watch('entries', v => S.entries = v); watch('people', v => S.people = v); watch('rates', v => S.rates = v); watch('srates', v => S.srates = v); }
+  else if (isHead() && myOwner()) { const o = myOwner(); watch('measures/' + o, v => S.measures = { [o]: v }); watch('entries/' + o, v => S.entries = { [o]: v }); }
+  if (isAdmin()) {
+    watch('users', v => S.users = v); watch('access', v => S.access = v);
+    subs.push(onValue(query(ref(db, 'audit'), limitToLast(300)), s => { S.audit = s.val() || {}; render(); }, () => {}));
+  }
+}
+
+// ── render (paused while someone is typing in the page, resumed when they leave the field)
+function typing() { const a = document.activeElement; return a && $('#main').contains(a) && /INPUT|TEXTAREA/.test(a.tagName); }
+function render() { if (!S.acc) return; if (typing()) { S.dirty = true; return; } draw(); }
+document.addEventListener('focusout', () => setTimeout(() => { if (S.dirty && !typing()) { S.dirty = false; draw(); } }, 0));
+
+const IC = {
+  home: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z', cards: 'M4 4h7v7H4zm9 0h7v7h-7zM4 13h7v7H4zm9 0h7v7h-7z', me: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z',
+  delay: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 10.4 3.3 3.3-1.4 1.4L11 13V6h2z', fin: 'M11 3v2.1C8.7 5.5 7 7 7 9c0 2.4 2 3.4 4.3 4l.7.2V17c-1.2-.2-2.2-.9-2.5-2H7.4c.3 2.2 2 3.6 4.6 3.9V21h2v-2.1c2.4-.4 4-1.9 4-4 0-2.5-2.1-3.4-4.4-4l-.6-.1V7.1c1 .2 1.8.8 2 1.9h2.1c-.3-2-1.8-3.4-4.1-3.8V3zm-1.9 6c0-.8.7-1.5 1.9-1.8v3.6c-1.3-.4-1.9-.9-1.9-1.8zm4.9 6.1c0 .9-.8 1.6-2 1.8v-3.7c1.4.4 2 .9 2 1.9z',
+  key: 'M7 14a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm5.6-4A6 6 0 1 0 12.6 14H17v4h4v-4h1v-4z', cog: 'M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.5 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z',
+  hist: 'M13 3a9 9 0 0 0-9 9H1l4 4 4-4H6a7 7 0 1 1 2.1 5l-1.4 1.4A9 9 0 1 0 13 3zm-1 5v5l4.3 2.5.7-1.2-3.5-2.1V8z',
+  edit: 'M3 17.2V21h3.8L17.8 9.9l-3.8-3.8zM20.7 7a1 1 0 0 0 0-1.4l-2.3-2.3a1 1 0 0 0-1.4 0l-1.8 1.8 3.8 3.8z',
+  left: 'M15.4 7.4 14 6l-6 6 6 6 1.4-1.4L10.8 12z', right: 'M8.6 16.6 10 18l6-6-6-6-1.4 1.4 4.6 4.6z'
+};
+const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[k]}"/></svg>`;
+
+function navItems() {
+  const n = [];
+  if (isTK()) { n.push(['register', 'Site register', 'delay']); return n; }
+  if (isAdmin() || isCeo()) n.push(['overview', 'Overview', 'home']);
+  if (isHead() && myOwner()) n.push(['mine', 'My scorecard', 'me']);
+  n.push(['cards', 'Scorecards', 'cards']);
+  n.push(['delays', 'Delay log', 'delay']);
+  if (isFin() || isAdmin()) n.push(['finance', 'Finance check', 'fin']);
+  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); if (isAdmin()) n.push(['register', 'Site register', 'cards']); n.push(['manpower', 'Manpower', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
+  if (isAdmin()) { n.push(['sep', 'Admin']); n.push(['people', 'People and sites', 'me']); n.push(['access', 'Access', 'key']); n.push(['setup', 'Scorecard setup', 'cog']); n.push(['activity', 'Activity', 'hist']); }
+  return n;
+}
+function draw() {
+  const roleTxt = isAdmin() ? (S.acc.ro ? 'Super user · view only' : 'Super user') : isCeo() ? 'CEO · view only' : isTK() ? 'Timekeeper' : (isFin() ? 'Function head · Finance' : 'Function head');
+  $('#roleChip').textContent = roleTxt; const av = $('#avatar'); av.textContent = ini((S.user.email || '').split('@')[0].replace(/[._-]/g, ' ')); av.title = S.user.email;
+  const pend = Object.keys(S.users).filter(u => !S.access[u]).length;
+  const unconf = finRows().filter(r => !r.e.fConf).length;
+  $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
+    `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
+  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts }[S.view] || (isTK() ? vRegister : vCards);
+  $('#main').innerHTML = `<div class="page">${V()}</div>`;
+  if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
+}
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveSrates', 'saveHours', 'closeMonth', 'addDelay']);
+const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
+const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
+const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
+
+// ── Overview (HR and CEO)
+function vOverview() {
+  const own = ownersSorted(); const wk = nowWeek();
+  let mTot = 0, bOk = 0, sub = 0, money = 0, conf = 0;
+  const rows = own.map(([o, x]) => {
+    const ms = measuresOf(o); const ent = (S.entries[o] || {})[wk] || {}; const c = { good: 0, warn: 0, bad: 0, none: 0 };
+    ms.forEach(([k, m]) => { mTot++; if (m.bOk && m.b != null) bOk++; const e = ent[k]; if (e && e.actual != null) sub++; const st = status(m, e, 'W')[0]; c[st || 'none']++; });
+    Object.values(S.entries[o] || {}).forEach(p => Object.values(p).forEach(e => { if (e.aed != null) { money++; if (e.fConf) conf++; } }));
+    const last = Math.max(0, ...Object.values(S.entries[o] || {}).flatMap(p => Object.values(p).map(e => e.at || 0)));
+    return `<tr><td><button class="lnk" data-a="open" data-o="${o}" style="text-align:left">${ownerLine(o, x)}</button></td><td class="num">${ms.length}</td>
+      <td class="num">${ms.filter(([k, m]) => m.bOk && m.b != null).length} of ${ms.length}</td>
+      <td><div class="row" style="gap:6px">${c.good ? chip('good', c.good + ' on target') : ''}${c.warn ? chip('warn', c.warn + ' at risk') : ''}${c.bad ? chip('bad', c.bad + ' behind') : ''}${c.none ? chip('', c.none + ' not ready') : ''}</div></td>
+      <td>${last ? fmtDT(last) : '<span style="color:var(--faint)">No entries yet</span>'}</td></tr>`;
+  }).join('');
+  const tile = (l, v, s) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  return ph('Overview', 'Outcome scorecards for the CEO\'s direct reports. Numbers come from each function head; money figures count only once Finance confirms them from records.',
+    `<button class="btn out no-print" data-a="print">Print</button>`) +
+    `<div class="grid g4">${tile('Scorecards', own.length, 'function heads set up')}${tile('Baselines agreed', bOk + ' of ' + mTot, 'measures ready to score')}${tile('Entered this week', sub + ' of ' + mTot, pLabel(wk))}${tile('Money figures confirmed', conf + ' of ' + money, 'by Finance, from records')}</div>` +
+    `<div class="card mt"><h2>This week by scorecard</h2><p class="sub">${esc(pLabel(wk))}. Status uses the weekly target. "Not ready" means the baseline or target is not agreed yet, or no actual is entered.</p>` +
+    (own.length ? `<div class="tw"><table><thead><tr><th>Function head</th><th class="num">Measures</th><th class="num">Baselines agreed</th><th>Status this week</th><th>Last update</th></tr></thead><tbody>${rows}</tbody></table></div>` :
+      `<div class="empty"><b>No scorecards yet</b>${isAdmin() ? 'Go to Setup to add them, or load the starter file.' : 'HR has not set up the scorecards yet.'}</div>`) + `</div>`;
+}
+
+// ── Scorecards
+function vCards() {
+  const own = ownersSorted();
+  if (!own.length) return ph('Scorecards', '') + `<div class="card"><div class="empty"><b>No scorecards yet</b>${isAdmin() ? 'Go to Setup to add the first one.' : 'HR has not set up the scorecards yet.'}</div></div>`;
+  if (!S.sel || !S.owners[S.sel]) S.sel = (isHead() && S.owners[myOwner()]) ? myOwner() : own[0][0];
+  const list = own.map(([o, x]) => `<button data-a="pick" data-o="${o}" aria-pressed="${o === S.sel}"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span>${esc(x.name)}${o === myOwner() && isHead() ? ' <small>· you</small>' : ''}</button>`).join('');
+  return ph(isHead() && S.sel === myOwner() ? 'My scorecard' : 'Scorecards', '', `<button class="btn out no-print" data-a="print">Print</button>`) +
+    `<div class="people no-print" role="group" aria-label="Choose a scorecard">${list}</div>${detail(S.sel)}`;
+}
+function detail(o) {
+  const x = S.owners[o]; const ms = measuresOf(o); const okB = ms.filter(([k, m]) => m.bOk && m.b != null).length;
+  const tabs = [['results', 'Measures and results'], ['profile', 'Role and authority'], ['actions', 'Actions and decisions']];
+  let body = '';
+  if (S.tab === 'results') body = results(o);
+  else if (S.tab === 'profile') body = profile(o, x);
+  else body = `<div class="grid g2"><div><h3 style="font-size:14px;font-weight:500;margin:0 0 8px">Corrective actions</h3><div class="pre">${esc(x.actions || 'None recorded yet.')}</div></div><div><h3 style="font-size:14px;font-weight:500;margin:0 0 8px">Decisions for the CEO\'s review</h3><div class="pre">${esc(x.decisions || 'None recorded yet.')}</div></div></div>` +
+    (isAdmin() ? `<div class="row mt"><button class="btn tonal sm" data-a="editOwner" data-o="${o}">Edit</button></div>` : `<p class="note">${isHead() && o === myOwner() ? 'Send changes to HR; they keep this text up to date.' : ''}</p>`);
+  return `<div class="card"><div class="hero"><div class="row" style="gap:16px"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><div><h2>${esc(x.name)}</h2><div style="color:var(--muted)">${esc(x.title)}</div></div></div>
+    <div class="row">${seesNumbers(o) ? chip(okB === ms.length && ms.length ? 'good' : '', okB + ' of ' + ms.length + ' baselines agreed') : ''}${isAdmin() ? `<button class="btn tonal sm no-print" data-a="editOwner" data-o="${o}">Edit profile</button>` : ''}</div></div>
+    <div class="outcome">${esc(x.outcome)}</div>
+    <div class="tabs no-print" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-a="tab" data-v="${k}" aria-selected="${S.tab === k}">${l}</button>`).join('')}</div>${body}</div>`;
+}
+function profile(o, x) {
+  const dl = a => { const L = lines(a); return L.length ? `<ul class="bul">${L.map(d => { const p = d.o && S.owners[d.o]; return `<li>${p ? `<button class="lnk" data-a="pick" data-o="${d.o}">${esc(p.name)}</button>: ` : ''}${esc(d.t)}</li>`; }).join('')}</ul>` : '<span style="color:var(--faint)">Not set</span>'; };
+  const ul = a => { const L = lines(a); return L.length ? `<ul class="bul">${L.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : '<span style="color:var(--faint)">Not set</span>'; };
+  return `<div class="cols3"><div><h3>Responsible for</h3>${ul(x.resp)}</div><div><h3>Can decide alone</h3>${ul(x.can)}</div><div><h3>Needs approval from</h3>${ul(x.needs)}</div></div>
+   <div class="dep"><div><h3>Depends on</h3>${dl(x.up)}</div><div><h3>Others depend on this role for</h3>${dl(x.down)}</div></div>`;
+}
+function results(o) {
+  if (!seesNumbers(o)) return `<div class="empty"><b>Numbers are private to this scorecard</b>Only the function head, HR, Finance and the CEO see each scorecard's numbers.</div>`;
+  const ms = measuresOf(o); const P = S.pkey; const ent = (S.entries[o] || {})[P] || {}; const lk = locked(o, P); const can = canEnter(o);
+  const bar = `<div class="pbar no-print"><div class="seg"><button data-a="ptype" data-v="W" aria-pressed="${S.ptype === 'W'}">Weekly</button><button data-a="ptype" data-v="M" aria-pressed="${S.ptype === 'M'}">Monthly</button></div>
+    <button class="icon-btn" data-a="pshift" data-v="-1" aria-label="Previous">${svg('left')}</button><span class="plabel">${esc(pLabel(P))}</span><button class="icon-btn" data-a="pshift" data-v="1" aria-label="Next">${svg('right')}</button>
+    <button class="btn text sm" data-a="pnow">${S.ptype === 'W' ? 'This week' : 'This month'}</button><span style="flex:1"></span>
+    ${lk ? chip('pri', 'Period locked') : ''}${isAdmin() ? `<button class="btn out sm" data-a="lock" data-o="${o}">${lk ? 'Unlock period' : 'Lock period'}</button><button class="btn tonal sm" data-a="editMeasure" data-o="${o}" data-m="">Add measure</button>` : ''}</div>`;
+  if (!ms.length) return bar + `<div class="empty"><b>No measures yet</b>${isAdmin() ? 'Add the first measure with the button above.' : 'HR has not added the measures yet.'}</div>`;
+  const rows = ms.map(([k, m]) => {
+    const e = ent[k] || {}; const st = status(m, ent[k], S.ptype); const t = S.ptype === 'W' ? m.w : m.mt; const money = !!MONEY[m.ft];
+    const fin = !money ? '' : e.aed == null ? '' : e.fConf ? `<div style="margin-top:6px">${chip('good', 'Finance confirmed')}</div>` : `<div style="margin-top:6px">${chip('warn', 'Not confirmed')}</div>`;
+    const ed = can ? `<td><input class="inp n" id="a_${k}" inputmode="decimal" value="${e.actual == null ? '' : esc(e.actual)}" aria-label="Actual for ${esc(m.n)}"></td>
+      <td><input class="inp ev" id="e_${k}" value="${esc(e.evidence || '')}" placeholder="Report name or link" aria-label="Evidence"></td>
+      <td>${money ? `<input class="inp n" id="x_${k}" inputmode="decimal" value="${e.aed == null ? '' : esc(e.aed)}" placeholder="—" aria-label="AED from records">${fin}` : '<span class="mmeta">No money value</span>'}</td>`
+      : `<td class="num">${fmtN(e.actual)}</td><td>${e.evidence ? esc(e.evidence) : '<span style="color:var(--faint)">—</span>'}</td><td class="num">${money ? fmtAED(e.aed) + fin : '<span class="mmeta">No money value</span>'}</td>`;
+    return `<tr><td style="min-width:240px;max-width:330px"><div class="mname">${esc(m.n)}</div><div class="mmeta">${esc(m.u)} · ${m.low ? 'lower' : 'higher'} is better · ${esc(m.ft)}</div><div class="mmeta">Source: ${esc(m.src || 'to be agreed')}</div><div style="margin-top:8px">${chip(st[0], st[1])}</div></td>
+      <td class="num">${m.b == null ? '—' : fmtN(m.b)}${m.b != null && !m.bOk ? '<div class="mmeta">not agreed</div>' : ''}</td><td class="num">${fmtN(t)}</td>${ed}
+      <td class="no-print" style="white-space:nowrap">${can ? `<button class="btn tonal sm" data-a="saveEntry" data-o="${o}" data-m="${k}">Save</button>` : ''}${isAdmin() ? `<button class="icon-btn" data-a="editMeasure" data-o="${o}" data-m="${k}" aria-label="Edit measure">${svg('edit')}</button>` : ''}</td></tr>`;
+  }).join('');
+  const who = Object.values(ent).sort((a, b) => (b.at || 0) - (a.at || 0))[0];
+  return bar + (lk && isHead() ? `<div class="banner">This period is locked by HR. Contact HR if a figure needs correcting.</div>` : '') +
+    `<div class="tw"><table><thead><tr><th>Measure</th><th class="num">Baseline</th><th class="num">${S.ptype === 'W' ? 'Weekly' : 'Monthly'} target</th><th class="num">Actual</th><th>Evidence</th><th class="num">AED from records</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` +
+    `<p class="note">AED only from an actual record (ledger, invoice, payroll). Leave it blank if there is no record — nothing is estimated. Changing an AED figure clears Finance's confirmation.${who ? ' Last entry: ' + esc(who.by) + ', ' + fmtDT(who.at) + '.' : ''}</p>`;
+}
+
+// ── Delay log
+function vDelays() {
+  const mo = S.dmonth; const all = Object.entries(S.delays).map(([id, d]) => ({ id, ...d })).sort((a, b) => b.date < a.date ? -1 : 1);
+  const inM = all.filter(d => String(d.date).slice(0, 7) === mo); const co = S.settings.causeOwner || {};
+  const sum = CAUSES.map(([k, l]) => { const days = inM.filter(d => d.cause === k).reduce((s, d) => s + Number(d.days || 0), 0); const ow = co[k] && S.owners[co[k]];
+    return `<tr><td>${esc(l)}</td><td class="num">${fmtN(days)}</td><td>${k === 'client' ? '<span style="color:var(--muted)">Not scored · may support an extension of time claim</span>' : ow ? esc(ow.name) : '<span style="color:var(--faint)">Not assigned yet</span>'}</td></tr>`; }).join('');
+  const canAdd = isHead() || isAdmin();
+  const form = canAdd && isHead() ? `<div class="card"><h2>Record delay days</h2><p class="sub">One line per cause. Each person is scored only on the days they control.</p>
+    <div class="form-grid"><div class="field"><label for="dDate">Date</label><input class="inp" type="date" id="dDate" value="${new Date().toISOString().slice(0, 10)}"></div>
+    <div class="field"><label for="dProj">Project</label><input class="inp" id="dProj" maxlength="100"></div>
+    <div class="field"><label for="dCause">Cause</label><select class="inp" id="dCause">${CAUSES.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></div>
+    <div class="field"><label for="dDays">Days</label><input class="inp" id="dDays" inputmode="decimal"></div>
+    <div class="field full"><label for="dNote">Note (optional)</label><input class="inp" id="dNote" maxlength="500"></div></div>
+    <div class="row"><button class="btn fill" data-a="addDelay">Add</button></div></div>` : '';
+  const rows = inM.map(d => `<tr><td>${fmtD(d.date)}</td><td>${esc(d.project)}</td><td>${esc(causeName(d.cause))}</td><td class="num">${fmtN(d.days)}</td><td>${esc(d.note || '')}</td><td style="color:var(--muted);font-size:12px">${esc(d.by)}</td>
+    <td class="no-print">${(isHead() && d.uid === S.user.uid) || isAdmin() ? `<button class="btn text sm" data-a="delDelay" data-v="${d.id}">Delete</button>` : ''}</td></tr>`).join('');
+  return ph('Delay log', 'Delay days by cause. Client and consultant days are never scored against CK staff.') + form +
+    `<div class="card"><div class="row" style="justify-content:space-between"><h2>${new Date(mo + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</h2>
+    <input class="inp no-print" type="month" value="${mo}" data-c="dmonth" style="width:auto"></div>
+    <div class="tw mt"><table><thead><tr><th>Cause</th><th class="num">Days</th><th>Scored against</th></tr></thead><tbody>${sum}</tbody></table></div></div>
+    <div class="card"><h2>Entries</h2>${inM.length ? `<div class="tw"><table><thead><tr><th>Date</th><th>Project</th><th>Cause</th><th class="num">Days</th><th>Note</th><th>By</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty"><b>No delay days recorded this month</b></div>'}</div>`;
+}
+
+// ── Finance check
+function finRows() { const r = []; Object.entries(S.entries).forEach(([o, ps]) => Object.entries(ps || {}).forEach(([p, es]) => Object.entries(es || {}).forEach(([m, e]) => { if (e && e.aed != null) r.push({ o, p, m, e }); }))); return r.sort((a, b) => (b.e.at || 0) - (a.e.at || 0)); }
+function vFinance() {
+  const rows = finRows(); const open = rows.filter(r => !r.e.fConf), done = rows.filter(r => r.e.fConf).slice(0, 30);
+  const row = (r, act) => { const x = S.owners[r.o] || { name: r.o }; const m = (S.measures[r.o] || {})[r.m] || { n: r.m };
+    const own = isHead() && r.o === myOwner();
+    return `<tr><td>${esc(x.name)}</td><td>${esc(m.n)}</td><td>${esc(pLabel(r.p))}</td><td class="num">${fmtAED(r.e.aed)}</td><td>${esc(r.e.evidence || '—')}</td><td style="font-size:12px;color:var(--muted)">${esc(r.e.by || '')}</td>
+      <td>${act ? (isFin() && !own ? `<button class="btn tonal sm" data-a="confirm" data-o="${r.o}" data-p="${r.p}" data-m="${r.m}">Confirm</button>` : `<span style="color:var(--faint);font-size:12px">${own ? 'Another person confirms your own figures' : 'Finance confirms'}</span>`) : `<span style="font-size:12px;color:var(--muted)">${esc(r.e.fBy || '')} · ${fmtDT(r.e.fAt)}</span>`}</td></tr>`; };
+  const head = '<thead><tr><th>Function head</th><th>Measure</th><th>Period</th><th class="num">AED</th><th>Evidence</th><th>Entered by</th><th></th></tr></thead>';
+  return ph('Finance check', 'Confirm each money figure only after checking it against the ledger, invoice or payroll record named as evidence. Nobody confirms their own figures.') +
+    `<div class="card"><h2>Waiting for confirmation</h2><p class="sub">${open.length} figure${open.length === 1 ? '' : 's'}</p>${open.length ? `<div class="tw"><table>${head}<tbody>${open.map(r => row(r, true)).join('')}</tbody></table></div>` : '<div class="empty"><b>Nothing waiting</b></div>'}</div>` +
+    `<div class="card"><h2>Recently confirmed</h2>${done.length ? `<div class="tw"><table>${head}<tbody>${done.map(r => row(r, false)).join('')}</tbody></table></div>` : '<div class="empty"><b>None yet</b></div>'}</div>`;
+}
+
+// ── Access (admin)
+function vAccess() {
+  const pend = Object.entries(S.users).filter(([u]) => !S.access[u]).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+  const cur = Object.entries(S.access).sort((a, b) => String(a[1].email || '').localeCompare(b[1].email || ''));
+  const ownOpts = sel => `<option value="">— none —</option>` + ownersSorted().map(([o, x]) => `<option value="${o}" ${o === sel ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  const siteBox = (u, a) => `<details style="margin-top:6px"><summary class="mmeta" style="cursor:pointer">Timekeeper sites (${Object.keys(a.sites || {}).length})</summary><div class="row" style="gap:4px 14px;margin-top:6px">${Object.entries(S.sites).sort(byName).map(([k, x]) => `<label class="chk" style="padding:2px 0"><input type="checkbox" class="ts_${u}" value="${k}" ${(a.sites || {})[k] ? 'checked' : ''}>${esc(x.name)}</label>`).join('') || '<span class="mmeta">Add sites first under People and sites.</span>'}</div></details>`;
+  const form = (u, a) => `<div><div class="row" style="gap:8px"><select class="inp" id="r_${u}" style="width:auto">${['head', 'timekeeper', 'ceo', 'admin'].map(r => `<option value="${r}" ${a.role === r ? 'selected' : ''}>${{ head: 'Function head', timekeeper: 'Timekeeper', ceo: 'CEO (view only)', admin: 'Super user' }[r]}</option>`).join('')}</select>
+    <select class="inp" id="o_${u}" style="width:auto" aria-label="Scorecard">${ownOpts(a.ownerId)}</select><label class="chk"><input type="checkbox" id="f_${u}" ${a.finance ? 'checked' : ''}>Finance</label><label class="chk"><input type="checkbox" id="ro_${u}" ${a.ro ? 'checked' : ''}>View only (super user)</label>
+    <button class="btn tonal sm" data-a="saveAccess" data-v="${u}">Save</button></div>${siteBox(u, a)}</div>`;
+  return ph('Access', 'People sign in with an account HR creates in Firebase. After their first sign-in they appear here. Give each person one role.') +
+    `<div class="card"><h2>Waiting for access</h2><p class="sub">Signed in, but no role yet. They see nothing until you save a role.</p>${pend.length ? `<div class="tw"><table><thead><tr><th>Person</th><th>First seen</th><th>Give access</th></tr></thead><tbody>${pend.map(([u, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b><div class="mmeta">${esc(x.email)}</div></td><td>${fmtDT(x.at)}</td><td>${form(u, { role: 'head' })}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>Nobody waiting</b></div>'}</div>` +
+    `<div class="card"><h2>People with access</h2><p class="sub">A function head sees only their own scorecard numbers. Tick Finance for the people who confirm money figures.</p>${cur.length ? `<div class="tw"><table><thead><tr><th>Person</th><th>Access</th><th></th></tr></thead><tbody>${cur.map(([u, a]) => `<tr><td><b style="font-weight:500">${esc(a.name || (S.users[u] || {}).name || '')}</b><div class="mmeta">${esc(a.email || (S.users[u] || {}).email || u)}</div></td><td>${form(u, a)}</td><td>${u === S.user.uid ? '<span class="mmeta">You</span>' : `<button class="btn text sm" data-a="dropAccess" data-v="${u}">Remove</button>`}</td></tr>`).join('')}</tbody></table></div>` : ''}</div>`;
+}
+
+// ── Setup (admin)
+function vSetup() {
+  const own = ownersSorted(); const co = S.settings.causeOwner || {};
+  const ownOpts = sel => `<option value="">— not assigned —</option>` + own.map(([o, x]) => `<option value="${o}" ${o === sel ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
+  return ph('Setup', 'Scorecards, measures and scoring rules. Changes show to everyone at once.') +
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Scorecards</h2><p class="sub" style="margin:0">One per function head.</p></div><button class="btn fill" data-a="editOwner" data-o="">Add scorecard</button></div>
+     ${own.length ? `<div class="tw mt"><table><thead><tr><th>Function head</th><th class="num">Measures</th><th></th></tr></thead><tbody>${own.map(([o, x]) => `<tr><td>${ownerLine(o, x)}</td><td class="num">${measuresOf(o).length}</td><td style="text-align:right;white-space:nowrap"><button class="btn text sm" data-a="open" data-o="${o}">Open</button><button class="btn text sm" data-a="editOwner" data-o="${o}">Edit</button><button class="btn text sm" style="color:var(--bad)" data-a="delOwner" data-o="${o}">Delete</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No scorecards yet</b>Add one, or load the starter file below.</div>'}</div>
+    <div class="card"><h2>Who each delay cause is scored against</h2><p class="sub">Client and consultant days are never scored.</p>
+     <div class="form-grid">${CAUSES.filter(c => c[0] !== 'client').map(([k, l]) => `<div class="field"><label for="co_${k}">${esc(l)}</label><select class="inp" id="co_${k}">${ownOpts(co[k])}</select></div>`).join('')}</div>
+     <button class="btn tonal" data-a="saveCauses">Save</button></div>
+    <div class="card"><h2>Starter file</h2><p class="sub">Loads the draft scorecards from <b>peh-starter.json</b> on the HR computer. The file is read in this browser only and is never part of the page code. Existing scorecards with the same ID are replaced; nothing else is touched.</p>
+     <input type="file" accept=".json" data-c="starter" class="wi"></div>
+    <div class="card"><h2>Backup</h2><p class="sub">Downloads all PEH data as one file. Keep it on the company server, never in GitHub.</p><button class="btn out" data-a="backup">Download backup</button></div>`;
+}
+
+// ── Activity (admin)
+function vActivity() {
+  const rows = Object.values(S.audit).sort((a, b) => b.at - a.at);
+  return ph('Activity', 'Every change, newest first. Nobody can edit or delete these entries from the page.') +
+    `<div class="card">${rows.length ? `<div class="tw"><table><thead><tr><th>When</th><th>Who</th><th>What</th><th>Detail</th></tr></thead><tbody>${rows.map(r => `<tr><td style="white-space:nowrap">${fmtDT(r.at)}</td><td>${esc(r.who)}</td><td>${esc(r.action)}</td><td style="color:var(--muted);min-width:240px">${esc(r.detail || '')}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No activity yet</b></div>'}</div>`;
+}
+
+// ── modal builder
+function modal(title, fields, onSave, extra = '') {
+  $('#modal').innerHTML = `<div class="scrim" data-a="closeModal"><div class="dialog" role="dialog" aria-modal="true" aria-label="${esc(title)}"><h2>${esc(title)}</h2><div class="form-grid">${fields.map(f => {
+    const v = f.v == null ? '' : f.v; const cl = f.full ? 'field full' : 'field';
+    if (f.t === 'chk') return `<label class="chk ${f.full ? 'full' : ''}"><input type="checkbox" id="mf_${f.id}" ${v ? 'checked' : ''}>${esc(f.l)}</label>`;
+    if (f.t === 'sel') return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><select class="inp" id="mf_${f.id}">${f.o.map(([k, l]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+    if (f.t === 'area') return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><textarea class="inp" id="mf_${f.id}">${esc(v)}</textarea>${f.h ? `<span class="mmeta">${esc(f.h)}</span>` : ''}</div>`;
+    return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><input class="inp" id="mf_${f.id}" value="${esc(v)}" ${f.num ? 'inputmode="decimal"' : ''}>${f.h ? `<span class="mmeta">${esc(f.h)}</span>` : ''}</div>`;
+  }).join('')}</div><div class="acts">${extra}<button class="btn text" data-a="closeModal">Cancel</button><button class="btn fill" data-a="modalSave">Save</button></div></div></div>`;
+  modal.save = () => { const r = {}; fields.forEach(f => { const el = $('#mf_' + f.id); r[f.id] = f.t === 'chk' ? el.checked : el.value.trim(); }); onSave(r); };
+}
+const closeModal = () => { $('#modal').innerHTML = ''; modal.save = null; };
+const depText = a => lines(a).map(d => (d.o && S.owners[d.o] ? S.owners[d.o].name + ': ' : '') + d.t).join('\n');
+const depParse = s => s.split('\n').map(t => t.trim()).filter(Boolean).map(t => { const hit = ownersSorted().find(([o, x]) => t.toLowerCase().startsWith(String(x.name).toLowerCase() + ':')); return hit ? { o: hit[0], t: t.slice(hit[1].name.length + 1).trim() } : { o: '', t }; });
+const L = s => s.split('\n').map(t => t.trim()).filter(Boolean);
+
+function editOwner(o) {
+  const x = S.owners[o] || {};
+  modal(o ? 'Edit scorecard' : 'New scorecard', [
+    { id: 'name', l: 'Name', v: x.name }, { id: 'title', l: 'Role title', v: x.title },
+    { id: 'outcome', l: 'Outcome owned (one sentence)', t: 'area', v: x.outcome, full: 1 },
+    { id: 'resp', l: 'Responsible for (one per line)', t: 'area', v: lines(x.resp).join('\n') },
+    { id: 'can', l: 'Can decide alone (one per line)', t: 'area', v: lines(x.can).join('\n') },
+    { id: 'needs', l: 'Needs approval from (one per line)', t: 'area', v: lines(x.needs).join('\n') },
+    { id: 'order', l: 'Order in lists', v: x.order || ownersSorted().length + 1, num: 1 },
+    { id: 'up', l: 'Depends on (one per line)', t: 'area', v: depText(x.up), h: 'To link another scorecard, start the line with its exact name and a colon, e.g. "Name: approved drawings".' },
+    { id: 'down', l: 'Others depend on this role for', t: 'area', v: depText(x.down) },
+    { id: 'actions', l: 'Corrective actions', t: 'area', v: x.actions, full: 1 },
+    { id: 'decisions', l: 'Decisions for the CEO\'s review', t: 'area', v: x.decisions, full: 1 }
+  ], r => {
+    if (!r.name || !r.title || !r.outcome) { toast('Name, role title and outcome are needed.'); return; }
+    const id = o || push(ref(db, 'owners')).key;
+    const rec = { name: r.name.slice(0, 100), title: r.title.slice(0, 150), outcome: r.outcome.slice(0, 1000), resp: L(r.resp), can: L(r.can), needs: L(r.needs), up: depParse(r.up), down: depParse(r.down), actions: r.actions, decisions: r.decisions, order: Number(r.order) || 99 };
+    set(ref(db, 'owners/' + id), rec).then(() => { log(o ? 'Scorecard edited' : 'Scorecard added', rec.name); closeModal(); toast('Saved'); if (!o) { S.view = 'cards'; S.sel = id; draw(); } }).catch(fail);
+  });
+}
+function editMeasure(o, k) {
+  const m = (S.measures[o] || {})[k] || {};
+  modal(k ? 'Edit measure' : 'New measure', [
+    { id: 'n', l: 'Measure (a result, not an activity)', v: m.n, full: 1 },
+    { id: 'u', l: 'Unit', v: m.u || '%' }, { id: 'low', l: 'Better when', t: 'sel', v: m.low ? '1' : '0', o: [['0', 'Higher'], ['1', 'Lower']] },
+    { id: 'ft', l: 'Link to money', t: 'sel', v: m.ft || 'Cost control', o: Object.keys(MONEY).map(k2 => [k2, k2 === 'Productivity' ? 'Productivity (no money value)' : k2]) },
+    { id: 'order', l: 'Order', v: m.order || measuresOf(o).length + 1, num: 1 },
+    { id: 'how', l: 'How it connects to money, from actual records', t: 'area', v: m.how, full: 1 },
+    { id: 'src', l: 'Source record', v: m.src, full: 1 },
+    { id: 'b', l: 'Baseline', v: m.b, num: 1 }, { id: 'bOk', l: 'Baseline agreed with the function head', t: 'chk', v: m.bOk },
+    { id: 'w', l: 'Weekly target', v: m.w, num: 1 }, { id: 'mt', l: 'Monthly target', v: m.mt, num: 1 }
+  ], r => {
+    if (!r.n) { toast('The measure needs a name.'); return; }
+    const nb = num(r.b), nw = num(r.w), nm = num(r.mt);
+    if ([nb, nw, nm].some(v => Number.isNaN(v))) { toast('Baseline and targets must be numbers.'); return; }
+    if (r.bOk && nb == null) { toast('Enter the baseline before marking it agreed.'); return; }
+    const id = k || push(ref(db, 'measures/' + o)).key;
+    const rec = { n: r.n.slice(0, 200), u: (r.u || '#').slice(0, 30), low: r.low === '1', ft: r.ft, how: r.how, src: r.src, b: nb, bOk: !!r.bOk, w: nw, mt: nm, order: Number(r.order) || 99 };
+    Object.keys(rec).forEach(z => rec[z] == null && delete rec[z]);
+    set(ref(db, 'measures/' + o + '/' + id), rec).then(() => { log(k ? 'Measure edited' : 'Measure added', (S.owners[o] || {}).name + ': ' + rec.n + (rec.bOk ? ' (baseline ' + rec.b + ' agreed)' : '')); closeModal(); toast('Saved'); }).catch(fail);
+  }, k ? `<button class="btn danger" data-a="delMeasure" data-o="${o}" data-m="${k}" style="margin-right:auto">Delete measure</button>` : '');
+}
+
+// ── actions
+function saveEntry(o, k) {
+  const P = S.pkey; const old = ((S.entries[o] || {})[P] || {})[k] || {};
+  const a = num($('#a_' + k).value), ev = $('#e_' + k).value.trim(), xEl = $('#x_' + k), x = xEl ? num(xEl.value) : null;
+  if (Number.isNaN(a) || Number.isNaN(x)) { toast('Actual and AED must be numbers.'); return; }
+  const path = 'entries/' + o + '/' + P + '/' + k;
+  if (a == null && !ev && x == null) { if (!old.at) return; remove(ref(db, path)).then(() => { log('Entry cleared', (S.owners[o] || {}).name + ' · ' + P); toast('Cleared'); }).catch(fail); return; }
+  const rec = { by: S.user.email, at: Date.now() };
+  if (a != null) rec.actual = a; if (ev) rec.evidence = ev.slice(0, 300); if (x != null) rec.aed = x;
+  const sameMoney = (old.aed == null ? null : old.aed) === (x == null ? null : x);
+  if (sameMoney && old.fConf) { rec.fConf = true; rec.fBy = old.fBy; rec.fAt = old.fAt; }
+  set(ref(db, path), rec).then(() => { log('Entry saved', (S.owners[o] || {}).name + ' · ' + P + ' · ' + ((S.measures[o] || {})[k] || {}).n + ' = ' + (a == null ? '—' : a) + (x != null ? ' · AED ' + x : '')); toast(!sameMoney && old.fConf ? 'Saved. The AED figure changed, so Finance needs to confirm it again.' : 'Saved'); }).catch(fail);
+}
+function confirmMoney(o, p, m) {
+  const e = ((S.entries[o] || {})[p] || {})[m]; if (!e) return;
+  if (!confirm('Confirm ' + fmtAED(e.aed) + ' for ' + ((S.owners[o] || {}).name || '') + '? Only confirm after checking it against the record: ' + (e.evidence || 'no evidence named') + '.')) return;
+  update(ref(db, 'entries/' + o + '/' + p + '/' + m), { fConf: true, fBy: S.user.email, fAt: Date.now() }).then(() => { log('Money figure confirmed', (S.owners[o] || {}).name + ' · ' + p + ' · ' + fmtAED(e.aed)); toast('Confirmed'); }).catch(fail);
+}
+function addDelay() {
+  const date = $('#dDate').value, project = $('#dProj').value.trim(), cause = $('#dCause').value, days = num($('#dDays').value), note = $('#dNote').value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !project || !days || Number.isNaN(days) || days <= 0 || days > 366) { toast('Enter the date, project and a number of days.'); return; }
+  const rec = { date, project: project.slice(0, 100), cause, days, uid: S.user.uid, by: S.user.email, at: Date.now() }; if (note) rec.note = note.slice(0, 500);
+  push(ref(db, 'delays'), rec).then(() => { log('Delay recorded', project + ' · ' + causeName(cause) + ' · ' + days + ' days'); toast('Added'); S.dmonth = date.slice(0, 7); draw(); }).catch(fail);
+}
+function saveAccess(u) {
+  const role = $('#r_' + u).value, ownerId = $('#o_' + u).value, fin = $('#f_' + u).checked, ro = $('#ro_' + u).checked;
+  const sites = {}; document.querySelectorAll('.ts_' + u).forEach(c => { if (c.checked) sites[c.value] = true; });
+  if (role === 'head' && !ownerId) { toast('Choose the scorecard for this function head.'); return; }
+  if (role === 'timekeeper' && !Object.keys(sites).length) { toast('Tick at least one site for this timekeeper.'); return; }
+  if (u === S.user.uid && (role !== 'admin' || ro) && !confirm('You are removing your own edit rights. Continue?')) return;
+  const p = S.users[u] || S.access[u] || {};
+  const rec = { role, ownerId: role === 'head' ? ownerId : '', finance: fin, email: String(p.email || '').slice(0, 200), name: String(p.name || '').slice(0, 100) };
+  if (role === 'admin' && ro) rec.ro = true; if (role === 'timekeeper') rec.sites = sites;
+  set(ref(db, 'access/' + u), rec).then(() => { log('Access set', rec.email + ' → ' + role + (ro && role === 'admin' ? ' (view only)' : '') + (fin ? ' + finance' : '') + (rec.ownerId ? ' · ' + (S.owners[rec.ownerId] || {}).name : '') + (role === 'timekeeper' ? ' · ' + Object.keys(sites).map(k => nm('sites', k)).join(', ') : '')); toast('Access saved'); }).catch(fail);
+}
+function exportBackup() {
+  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'srates', 'att', 'closed'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
+    const blob = new Blob([JSON.stringify(Object.fromEntries(r), null, 1)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PEH-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+    log('Backup downloaded', ''); }).catch(fail);
+}
+function loadStarter(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return;
+  const rd = new FileReader(); rd.onload = () => {
+    let d; try { d = JSON.parse(String(rd.result)); } catch (e) { toast('That is not a valid starter file.'); return; }
+    const ow = d && d.owners, ms = d && d.measures || {};
+    if (!ow || typeof ow !== 'object' || !Object.keys(ow).every(k => ID_RX.test(k) && ow[k].name && ow[k].title && ow[k].outcome)) { toast('That is not a valid starter file.'); return; }
+    if (!confirm('Load ' + Object.keys(ow).length + ' scorecards and their measures? Scorecards with the same ID are replaced.')) { inp.value = ''; return; }
+    const upd = {}; Object.entries(ow).forEach(([k, v]) => { upd['owners/' + k] = v; if (ms[k]) upd['measures/' + k] = ms[k]; });
+    if (d.causeOwner) upd['settings/causeOwner'] = d.causeOwner;
+    update(ref(db), upd).then(() => { log('Starter file loaded', Object.keys(ow).length + ' scorecards'); toast('Loaded'); inp.value = ''; }).catch(fail);
+  }; rd.readAsText(f);
+}
+
+
+// ══ Step 2: site attendance, manpower, people master, costs and reports ══
+const STAT = [['P', 'Present'], ['A', 'Absent'], ['SL', 'Sick leave'], ['AL', 'Annual leave'], ['UL', 'Unpaid leave'], ['CO', 'Comp. off'], ['WFH', 'Work from home'], ['LL', 'Long leave']];
+const LEAVE = s => ['SL', 'AL', 'UL', 'CO', 'LL'].includes(s);
+const CATS = [['staff', 'CKC staff'], ['labour', 'CKC labour'], ['supply', 'Supply labour']];
+const catName = c => c === 'sub' ? 'Subcontractors' : (CATS.find(x => x[0] === c) || [c, c])[1];
+const TGROUPS = ['Civil', 'MEP', 'Joinery', 'Staff', 'Drivers', 'Office'];
+const isTK = () => !!(S.acc && S.acc.role === 'timekeeper');
+const canW = () => isAdmin() && S.acc.ro !== true;
+const seesCost = () => isAdmin() || isCeo() || isFin();
+const tkSites = () => Object.keys((S.acc && S.acc.sites) || {}).filter(k => S.acc.sites[k] === true);
+const HRS = () => Object.assign({ wd: 8, sat: 6, otf: 1.25 }, S.settings.hours || {});
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const today = () => ymd(new Date());
+const addDays = (s, n) => { const d = new Date(s + 'T00:00:00'); d.setDate(d.getDate() + n); return ymd(d); };
+const stdDay = s => { const w = new Date(s + 'T00:00:00').getDay(); return w === 0 ? 0 : w === 6 ? Number(HRS().sat) : Number(HRS().wd); };
+const monthStd = m => { const [y, mo] = m.split('-').map(Number); let t = 0; const n = new Date(y, mo, 0).getDate(); for (let i = 1; i <= n; i++) t += stdDay(m + '-' + String(i).padStart(2, '0')); return t; };
+const byName = (a, b) => String(a[1].name || '').localeCompare(String(b[1].name || ''));
+const nm = (col, id) => (S[col][id] || {}).name || (id ? '(not in list)' : '—');
+const fmtH = v => (Math.round(v * 10) / 10).toLocaleString('en-US');
+const monthsBetween = (a, b) => { const out = []; let [y, m] = a.slice(0, 7).split('-').map(Number); const [ty, tm] = b.slice(0, 7).split('-').map(Number); while ((y < ty || (y === ty && m <= tm)) && out.length < 61) { out.push(y + '-' + String(m).padStart(2, '0')); m++; if (m > 12) { m = 1; y++; } } return out; };
+const attCache = {};
+async function loadMonths(ms, force) { await Promise.all(ms.filter(m => force || !attCache[m]).map(m => get(ref(db, 'att/' + m)).then(s => { attCache[m] = s.val() || {}; }))); }
+function rateFor(pid, m) { const r = S.rates[pid]; if (!r) return null; const k = Object.keys(r).filter(x => x <= m).sort().pop(); return k ? Object.assign({ from: k }, r[k]) : null; }
+function srateFor(cid, tid, m) { const r = S.srates[cid]; if (!r) return null; const k = Object.keys(r).filter(x => x <= m && r[x] && r[x][tid] != null).sort().pop(); return k ? Number(r[k][tid]) : null; }
+// cost of one day for one person. null = no rate on record (never estimated)
+function dayCost(p, pid, date, rec, basis) {
+  const m = date.slice(0, 7), h = Number(rec.h || 0), ot = Number(rec.ot || 0); if (!h && !ot) return 0;
+  if (p.cat === 'supply') { if (basis === 'fixed') return 0; const r = srateFor(p.company, p.trade, m); if (r == null) return null; const base = stdDay(date) || Number(HRS().wd); return (h / base) * r + (ot / base) * r * Number(HRS().otf); }
+  const r = rateFor(pid, m); if (!r) return null;
+  const amt = basis === 'fixed' ? Number(r.fx || 0) : basis === 'variable' ? Number(r.vr || 0) : Number(r.fx || 0) + Number(r.vr || 0);
+  const ms = monthStd(m); if (!ms) return null; const hr = amt / ms; return h * hr + ot * hr * Number(HRS().otf);
+}
+function csvParse(t) { const rows = []; let r = [], f = '', q = false; t = t.replace(/^\uFEFF/, ''); for (let i = 0; i < t.length; i++) { const c = t[i]; if (q) { if (c === '"') { if (t[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; } else if (c === '"') q = true; else if (c === ',') { r.push(f); f = ''; } else if (c === '\n' || c === '\r') { if (c === '\r' && t[i + 1] === '\n') i++; r.push(f); rows.push(r); r = []; f = ''; } else f += c; } if (f !== '' || r.length) { r.push(f); rows.push(r); } return rows.filter(x => x.some(v => String(v).trim() !== '')); }
+function csvDownload(name, rows) { const cell = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }; const blob = new Blob(['\uFEFF' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+const isClosed = m => !!(S.closed && S.closed[m]);
+
+// ── Site register (timekeepers and HR)
+S.reg = { date: today(), site: '', saved: undefined, draft: null, edited: false, prevNote: '' };
+let regSub = null;
+function regSites() { return (isTK() ? tkSites() : Object.keys(S.sites)).filter(s => S.sites[s] && S.sites[s].active !== false).sort((a, b) => nm('sites', a).localeCompare(nm('sites', b))); }
+function openReg() {
+  if (regSub) { try { regSub(); } catch (e) {} regSub = null; }
+  const R = S.reg; if (!R.site) return; R.saved = undefined; R.draft = null; R.edited = false; R.prevNote = '';
+  const m = R.date.slice(0, 7), d = R.date.slice(8);
+  regSub = onValue(ref(db, 'att/' + m + '/' + d + '/' + R.site), snap => { R.saved = snap.val(); if (!R.edited) buildDraft(); render(); }, e => { R.saved = null; toast('Could not open this register: ' + (e.code || e.message)); render(); });
+}
+async function buildDraft() {
+  const R = S.reg; const site = R.site, date = R.date;
+  const assigned = Object.entries(S.people).filter(([k, p]) => p.site === site && p.status !== 'left' && (!p.joined || p.joined <= date));
+  if (R.saved) {
+    const w = {}; Object.entries(R.saved.w || {}).forEach(([k, r]) => w[k] = Object.assign({}, r));
+    assigned.forEach(([k]) => { if (!w[k]) w[k] = { s: '', h: 0, ot: 0 }; });
+    R.draft = { w, sub: Object.assign({}, R.saved.sub || {}) }; R.prevNote = ''; return;
+  }
+  const w = {}; assigned.forEach(([k]) => w[k] = { s: 'P', h: stdDay(date), ot: 0 }); let sub = {}; R.prevNote = '';
+  for (let i = 1; i <= 7; i++) {
+    const pd = addDays(date, -i); let prev = null;
+    try { const s = await get(ref(db, 'att/' + pd.slice(0, 7) + '/' + pd.slice(8) + '/' + site)); prev = s.val(); } catch (e) {}
+    if (prev) { Object.keys(prev.w || {}).forEach(k => { if (!w[k] && S.people[k] && S.people[k].status !== 'left') w[k] = { s: 'P', h: stdDay(date), ot: 0 }; }); sub = Object.assign({}, prev.sub || {}); R.prevNote = 'Filled in from ' + fmtD(pd) + '. Change only what is different today, then save.'; break; }
+  }
+  if (S.reg.site !== site || S.reg.date !== date) return;
+  R.draft = { w, sub }; if (!R.prevNote && assigned.length) R.prevNote = 'Everyone assigned to this site is set to Present. Change only what is different, then save.';
+  render();
+}
+function regLocked() {
+  const R = S.reg; if (canW()) return ''; if (!isTK()) return 'View only.';
+  if (isClosed(R.date.slice(0, 7))) return 'HR has closed this month. Ask HR to correct it.';
+  if (R.date > today()) return 'You cannot record a future date.';
+  if (R.saved && R.saved.meta && R.saved.meta.c && Date.now() - R.saved.meta.c > 172800000) return 'This register is older than 2 days and can no longer be edited. Ask HR to correct it.';
+  return '';
+}
+function regSummary(draft) {
+  const g = {}; const comp = {}; let pres = 0, abs = 0, lv = 0, unset = 0, h = 0, ot = 0;
+  Object.entries(draft.w || {}).forEach(([k, r]) => { const p = S.people[k] || {}; if (!r.s) { unset++; return; }
+    if (r.s === 'P' || r.s === 'WFH') { pres++; const grp = (S.trades[p.trade] || {}).group || 'Other'; const src = p.cat === 'supply' ? nm('companies', p.company) : 'CKC'; g[grp] = g[grp] || {}; g[grp][src] = (g[grp][src] || 0) + 1; comp[src] = (comp[src] || 0) + 1; }
+    else if (r.s === 'A') abs++; else if (LEAVE(r.s)) lv++; h += Number(r.h || 0); ot += Number(r.ot || 0); });
+  const sub = Object.values(draft.sub || {}).reduce((a, n) => a + Number(n || 0), 0);
+  return { g, comp, pres, abs, lv, unset, h, ot, sub };
+}
+function vRegister() {
+  const sites = regSites(); const R = S.reg;
+  if (!sites.length) return ph('Site register', '') + `<div class="card"><div class="empty"><b>No sites ${isTK() ? 'assigned to you' : 'set up'} yet</b>${isTK() ? 'Ask HR to assign your sites.' : 'Add sites under People and sites.'}</div></div>`;
+  if (!R.site || !sites.includes(R.site)) { R.site = sites[0]; openReg(); }
+  const lock = regLocked(); const ed = !lock;
+  const head = `<div class="card no-print"><div class="row" style="gap:12px;align-items:flex-end">
+     <div class="field" style="margin:0"><label for="rDate">Date</label><input class="inp" type="date" id="rDate" data-c="regDate" value="${R.date}" max="${today()}" style="width:auto"></div>
+     <div class="field" style="margin:0;flex:1;min-width:200px"><label for="rSite">Site</label><select class="inp" id="rSite" data-c="regSite">${sites.map(s => `<option value="${s}" ${s === R.site ? 'selected' : ''}>${esc(nm('sites', s))}</option>`).join('')}</select></div>
+     <div>${R.saved ? chip('good', 'Saved ' + (R.saved.meta && R.saved.meta.at ? fmtDT(R.saved.meta.at) : '')) : R.saved === null ? chip('warn', 'Not saved yet') : ''}</div></div></div>`;
+  if (!R.draft) return ph('Site register', 'Daily attendance by name for each site. Totals and reports are calculated from this.') + head + `<div class="card"><div class="empty"><b>Loading…</b></div></div>`;
+  const rows = Object.entries(R.draft.w).map(([k, r]) => [k, r, S.people[k] || { name: '(person removed)', cat: 'labour' }])
+    .sort((a, b) => (a[2].cat === b[2].cat ? 0 : a[2].cat === 'staff' ? -1 : b[2].cat === 'staff' ? 1 : a[2].cat === 'labour' ? -1 : 1) || String(a[2].name).localeCompare(b[2].name));
+  const opt = v => `<option value="">— mark —</option>` + STAT.map(([c, l]) => `<option value="${c}" ${v === c ? 'selected' : ''}>${l}</option>`).join('');
+  const body = rows.map(([k, r, p]) => `<tr><td style="min-width:200px"><div class="mname">${esc(p.name)}</div><div class="mmeta">${esc(nm('trades', p.trade))} · ${p.cat === 'supply' ? esc(nm('companies', p.company)) : catName(p.cat)}${p.site !== R.site ? ' · from ' + esc(nm('sites', p.site)) : ''}</div></td>
+     <td>${ed ? `<select class="inp wi" data-c="reg" data-k="${k}" data-f="s" aria-label="Status for ${esc(p.name)}" style="min-width:140px">${opt(r.s)}</select>` : chip(r.s === 'P' ? 'good' : r.s === 'A' ? 'bad' : r.s ? 'warn' : '', (STAT.find(x => x[0] === r.s) || ['', 'Not marked'])[1])}</td>
+     <td class="num" data-l="Hours">${ed ? `<input class="inp n wi" style="width:72px" inputmode="decimal" data-c="reg" data-k="${k}" data-f="h" value="${r.h || 0}" aria-label="Hours">` : fmtH(r.h || 0)}</td>
+     <td class="num" data-l="Overtime">${ed ? `<input class="inp n wi" style="width:72px" inputmode="decimal" data-c="reg" data-k="${k}" data-f="ot" value="${r.ot || 0}" aria-label="Overtime hours">` : fmtH(r.ot || 0)}</td>
+     <td class="no-print">${ed ? `<button class="icon-btn wi" data-a="regDrop" data-v="${k}" aria-label="Remove from this register" title="Remove from this register">✕</button>` : ''}</td></tr>`).join('');
+  const others = Object.entries(S.people).filter(([k, p]) => !R.draft.w[k] && p.status !== 'left').sort(byName);
+  const subs = Object.entries(S.companies).filter(([k, c]) => c.kind === 'sub').sort(byName);
+  const subRows = subs.filter(([k]) => R.draft.sub[k] != null).map(([k, c]) => `<tr><td>${esc(c.name)}</td><td class="num">${ed ? `<input class="inp n wi" inputmode="numeric" data-c="regSub" data-k="${k}" value="${R.draft.sub[k] || 0}" aria-label="Headcount ${esc(c.name)}">` : fmtN(R.draft.sub[k])}</td></tr>`).join('');
+  const sm = regSummary(R.draft);
+  const groups = Object.keys(sm.g).sort(); const srcs = [...new Set(groups.flatMap(g => Object.keys(sm.g[g])))].sort((a, b) => a === 'CKC' ? -1 : b === 'CKC' ? 1 : a.localeCompare(b));
+  return ph('Site register', 'Daily attendance by name for each site. Totals and reports are calculated from this.', `<button class="btn out no-print" data-a="print">Print</button>`) + head +
+    (lock ? `<div class="banner warn">${esc(lock)}</div>` : R.prevNote && !R.saved ? `<div class="banner">${esc(R.prevNote)}</div>` : '') +
+    `<div class="grid g4" style="margin-bottom:16px">${[['Present', sm.pres], ['Absent', sm.abs], ['On leave', sm.lv], ['Subcontractors', sm.sub]].map(([l, v]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${l === 'Present' ? fmtH(sm.h) + ' h · OT ' + fmtH(sm.ot) + ' h' : l === 'Subcontractors' ? 'headcount' : ''}</div></div>`).join('')}</div>` +
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC and supply labour</h2><p class="sub" style="margin:0">${rows.length} people${sm.unset ? ' · <b style="color:var(--warn)">' + sm.unset + ' not marked</b>' : ''}</p></div>
+       ${ed ? `<div class="row no-print"><button class="btn out sm wi" data-a="markAll">Mark all present</button><button class="btn fill wi" data-a="saveReg">Save register</button></div>` : ''}</div>
+     ${rows.length ? `<div class="tw mt"><table class="regtbl"><thead><tr><th>Name</th><th>Status</th><th class="num">Hours</th><th class="num">Overtime</th><th></th></tr></thead><tbody>${body}</tbody></table></div>` : '<div class="empty"><b>No one assigned to this site</b>Add people below, or assign them a site under People and sites.</div>'}
+     ${ed && others.length ? `<div class="row mt no-print"><select class="inp wi" id="addW" style="width:auto;flex:1;min-width:220px"><option value="">Add someone working here today…</option>${others.map(([k, p]) => `<option value="${k}">${esc(p.name)} · ${esc(nm('trades', p.trade))}${p.site ? ' · ' + esc(nm('sites', p.site)) : ''}</option>`).join('')}</select><button class="btn tonal sm wi" data-a="addWorker">Add</button></div>` : ''}</div>` +
+    `<div class="card"><h2>Subcontractors</h2><p class="sub">Headcount by company. Their cost comes from their contract, not from hours.</p>
+     ${subRows ? `<div class="tw"><table><thead><tr><th>Company</th><th class="num">Headcount</th></tr></thead><tbody>${subRows}</tbody></table></div>` : '<p class="note">None recorded.</p>'}
+     ${ed ? `<div class="row mt no-print"><select class="inp wi" id="addS" style="width:auto;flex:1;min-width:220px"><option value="">Add a subcontractor…</option>${subs.filter(([k]) => R.draft.sub[k] == null).map(([k, c]) => `<option value="${k}">${esc(c.name)}</option>`).join('')}</select><button class="btn tonal sm wi" data-a="addSub">Add</button></div>` : ''}</div>` +
+    `<div class="card"><h2>Present by trade group</h2><p class="sub">Calculated from the names above. Nothing to type.</p>${groups.length ? `<div class="tw"><table><thead><tr><th>Group</th>${srcs.map(s => `<th class="num">${esc(s)}</th>`).join('')}<th class="num">Total</th></tr></thead><tbody>${groups.map(g => `<tr><td>${esc(g)}</td>${srcs.map(s => `<td class="num">${sm.g[g][s] || 0}</td>`).join('')}<td class="num"><b>${Object.values(sm.g[g]).reduce((a, b) => a + b, 0)}</b></td></tr>`).join('')}</tbody></table></div>` : '<p class="note">No one marked present yet.</p>'}</div>`;
+}
+async function saveReg() {
+  const R = S.reg; const lock = regLocked(); if (lock) { toast(lock); return; }
+  const w = {}; let bad = '';
+  Object.entries(R.draft.w).forEach(([k, r]) => { if (!r.s) return; const h = Number(r.h || 0), ot = Number(r.ot || 0); if (!(h >= 0 && h <= 24) || !(ot >= 0 && ot <= 16)) bad = (S.people[k] || {}).name || k; w[k] = { s: r.s, h: (r.s === 'P' || r.s === 'WFH') ? h : 0, ot: (r.s === 'P' || r.s === 'WFH') ? ot : 0 }; });
+  if (bad) { toast('Check the hours for ' + bad + ' (0–24 normal, 0–16 overtime).'); return; }
+  const unset = Object.values(R.draft.w).filter(r => !r.s).length;
+  if (unset && !confirm(unset + ' people are not marked and will not be saved. Save anyway?')) return;
+  const sub = {}; Object.entries(R.draft.sub).forEach(([k, n]) => { n = Number(n); if (n > 0) sub[k] = n; });
+  const m = R.date.slice(0, 7), d = R.date.slice(8);
+  const rec = { meta: { by: S.user.email, at: serverTimestamp(), c: (R.saved && R.saved.meta && R.saved.meta.c) || serverTimestamp() } };
+  if (Object.keys(w).length) rec.w = w; if (Object.keys(sub).length) rec.sub = sub;
+  try { await set(ref(db, 'att/' + m + '/' + d + '/' + R.site), rec); R.edited = false; delete attCache[m]; log('Register saved', nm('sites', R.site) + ' · ' + R.date + ' · ' + Object.values(w).filter(r => r.s === 'P' || r.s === 'WFH').length + ' present'); toast('Saved'); }
+  catch (e) { fail(e); }
+}
+
+// ── Manpower dashboard (daily)
+S.mp = { date: today(), loading: false };
+function vManpower() {
+  const D = S.mp.date, m = D.slice(0, 7), d = D.slice(8);
+  if (!attCache[m]) { if (!S.mp.loading) { S.mp.loading = true; loadMonths([m]).then(() => { S.mp.loading = false; draw(); }).catch(e => { S.mp.loading = false; fail(e); }); } return ph('Manpower', '') + `<div class="card"><div class="empty"><b>Loading…</b></div></div>`; }
+  const day = attCache[m][d] || {}; const sites = Object.entries(S.sites).filter(([k, s]) => s.active !== false || day[k]).sort(byName);
+  const T = { staff: 0, labour: 0, supply: 0, sub: 0, abs: 0, lv: 0, h: 0, ot: 0, missing: 0 }; const comp = {}; const st = {};
+  const rows = sites.map(([sid, s]) => { const r = day[sid]; const x = { staff: 0, labour: 0, supply: 0, sub: 0, abs: 0, lv: 0 };
+    if (r) { Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { cat: 'labour' }; st[a.s] = (st[a.s] || 0) + 1;
+        if (a.s === 'P' || a.s === 'WFH') { x[p.cat] = (x[p.cat] || 0) + 1; T.h += Number(a.h || 0); T.ot += Number(a.ot || 0); if (p.cat === 'supply') { const c = p.company; comp[c] = comp[c] || { n: 0, kind: 'supply', sites: new Set() }; comp[c].n++; comp[c].sites.add(sid); } }
+        else if (a.s === 'A') x.abs++; else if (LEAVE(a.s)) x.lv++; });
+      Object.entries(r.sub || {}).forEach(([c, n]) => { x.sub += Number(n); comp[c] = comp[c] || { n: 0, kind: 'sub', sites: new Set() }; comp[c].n += Number(n); comp[c].sites.add(sid); }); }
+    else T.missing++;
+    ['staff', 'labour', 'supply', 'sub', 'abs', 'lv'].forEach(k => T[k] += x[k]); const tot = x.staff + x.labour + x.supply + x.sub;
+    return `<tr><td><b style="font-weight:500">${esc(s.name)}</b><div class="mmeta">${esc(s.project || s.region || '')}</div></td><td class="num">${x.staff}</td><td class="num">${x.labour}</td><td class="num">${x.supply}</td><td class="num">${x.sub}</td><td class="num"><b>${tot}</b></td><td class="num">${x.abs + x.lv}</td><td>${r ? chip('good', 'Submitted') : chip('warn', 'Not submitted')}</td></tr>`; }).join('');
+  const total = T.staff + T.labour + T.supply + T.sub;
+  const tile = (l, v, s) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const compRows = Object.entries(comp).sort((a, b) => b[1].n - a[1].n).map(([c, x]) => `<tr><td>${esc(nm('companies', c))}</td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td><td class="num">${x.n}</td><td style="color:var(--muted)">${[...x.sites].map(s => esc(nm('sites', s))).join(', ')}</td></tr>`).join('');
+  return ph('Manpower', 'Who was deployed where, for one day. Built from the site registers, so the totals always add up.',
+      `<div class="row no-print"><input class="inp" type="date" data-c="mpDate" value="${D}" style="width:auto"><button class="btn tonal" data-a="mpPdf">Download PDF</button><button class="btn text" data-a="print">Print</button></div>`) +
+    `<div class="grid g4">${tile('Total deployed', total, fmtD(D))}${tile('CKC present', T.staff + T.labour, T.staff + ' staff · ' + T.labour + ' labour')}${tile('Supply and subcontractors', T.supply + T.sub, T.supply + ' supply · ' + T.sub + ' subcontract')}${tile('Registers missing', T.missing, 'of ' + sites.length + ' sites')}</div>` +
+    `<div class="card mt"><h2>By site</h2><p class="sub">${fmtH(T.h)} normal hours and ${fmtH(T.ot)} overtime hours recorded for CKC and supply labour.</p><div class="tw"><table><thead><tr><th>Site</th><th class="num">CKC staff</th><th class="num">CKC labour</th><th class="num">Supply</th><th class="num">Subcontract</th><th class="num">Total</th><th class="num">Absent / leave</th><th>Register</th></tr></thead><tbody>${rows}</tbody>
+     <tfoot><tr><td><b>Total</b></td><td class="num"><b>${T.staff}</b></td><td class="num"><b>${T.labour}</b></td><td class="num"><b>${T.supply}</b></td><td class="num"><b>${T.sub}</b></td><td class="num"><b>${total}</b></td><td class="num"><b>${T.abs + T.lv}</b></td><td></td></tr></tfoot></table></div></div>` +
+    `<div class="grid g2 mt"><div class="card" style="margin:0"><h2>By company</h2>${compRows ? `<div class="tw"><table><thead><tr><th>Company</th><th>Type</th><th class="num">Headcount</th><th>Sites</th></tr></thead><tbody>${compRows}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>
+     <div class="card" style="margin:0"><h2>CKC and supply status</h2><div class="tw"><table><tbody>${STAT.map(([c, l]) => `<tr><td>${l}</td><td class="num">${st[c] || 0}</td></tr>`).join('')}</tbody></table></div></div></div>`;
+}
+
+// ── Reports (any period)
+const GROUPS = [['person', 'Person'], ['site', 'Site'], ['project', 'Project'], ['trade', 'Trade'], ['tgroup', 'Trade group'], ['company', 'Company'], ['cat', 'Category'], ['dept', 'Department'], ['month', 'Month']];
+S.rep = { from: today().slice(0, 8) + '01', to: today(), by: 'project', basis: 'both', cat: '', site: '', res: null, busy: false };
+function keyOf(by, p, pid, sid, date) {
+  const s = S.sites[sid] || {};
+  switch (by) {
+    case 'person': return [pid, p.name + (p.empId ? ' · ' + p.empId : '')];
+    case 'site': return [sid, s.name || sid];
+    case 'project': { const pr = s.project || s.name || sid; return [pr, pr]; }
+    case 'trade': return [p.trade || '-', nm('trades', p.trade)];
+    case 'tgroup': { const g = (S.trades[p.trade] || {}).group || 'Other'; return [g, g]; }
+    case 'company': return p.cat === 'supply' || p.cat === 'sub' ? [p.company, nm('companies', p.company)] : ['CKC', 'CKC'];
+    case 'cat': return [p.cat, catName(p.cat)];
+    case 'dept': return [p.dept || '-', p.dept || 'Not set'];
+    case 'month': { const k = date.slice(0, 7); return [k, new Date(k + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })]; }
+  }
+}
+function computeReport(o) {
+  const rows = {}; let noRate = 0, days = 0;
+  const row = (k, l) => rows[k] = rows[k] || { label: l, md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0 };
+  monthsBetween(o.from, o.to).forEach(m => Object.entries(attCache[m] || {}).forEach(([d, sites]) => {
+    const date = m + '-' + d; if (date < o.from || date > o.to) return; days++;
+    Object.entries(sites || {}).forEach(([sid, r]) => { if (o.site && sid !== o.site) return;
+      if (o.cat !== 'sub') Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { name: '(person removed)', cat: 'labour' }; if (o.cat && p.cat !== o.cat) return;
+        const [k, l] = keyOf(o.by, p, pid, sid, date); const x = row(k, l); const h = Number(a.h || 0);
+        if ((a.s === 'P' || a.s === 'WFH') && (h > 0 || Number(a.ot || 0) > 0)) x.md++; x.h += h; x.ot += Number(a.ot || 0); if (a.s === 'A') x.abs++; if (LEAVE(a.s)) x.lv++;
+        if (seesCost()) { const c = dayCost(p, pid, date, a, o.basis); if (c == null) { x.miss++; noRate++; } else x.cost += c; } });
+      if ((!o.cat || o.cat === 'sub') && ['site', 'project', 'company', 'month', 'cat'].includes(o.by)) Object.entries(r.sub || {}).forEach(([c, n]) => { const p = { cat: 'sub', company: c }; const [k, l] = keyOf(o.by, p, '', sid, date); row(k, l).sub += Number(n); }); }); }));
+  const list = Object.entries(rows).map(([k, x]) => x).sort((a, b) => seesCost() ? b.cost - a.cost || b.h - a.h : b.h - a.h);
+  const tot = list.reduce((t, x) => { ['md', 'h', 'ot', 'abs', 'lv', 'cost', 'miss', 'sub'].forEach(f => t[f] += x[f]); return t; }, { md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0 });
+  return { list, tot, noRate, days };
+}
+async function runReport() {
+  const o = S.rep; if (!o.from || !o.to || o.from > o.to) { toast('Choose a valid From and To date.'); return; }
+  const ms = monthsBetween(o.from, o.to); if (ms.length > 60) { toast('Choose 5 years or less.'); return; }
+  o.busy = true; draw();
+  try { await loadMonths(ms, true); o.res = computeReport(o); o.ran = JSON.stringify([o.from, o.to, o.by, o.basis, o.cat, o.site]); } catch (e) { fail(e); }
+  o.busy = false; draw();
+}
+function repQuick(k) { const t = new Date(), y = t.getFullYear(), m = t.getMonth(); const f = (a, b) => { S.rep.from = ymd(a); S.rep.to = ymd(b); };
+  if (k === 'month') f(new Date(y, m, 1), t); else if (k === 'last') f(new Date(y, m - 1, 1), new Date(y, m, 0)); else if (k === 'ytd') f(new Date(y, 0, 1), t); else if (k === 'lastyear') f(new Date(y - 1, 0, 1), new Date(y - 1, 11, 31)); runReport(); }
+function vReports() {
+  const o = S.rep; const R = o.res; const cost = seesCost();
+  const sel = (id, v, opts, lab) => `<div class="field" style="margin:0"><label for="${id}">${lab}</label><select class="inp" id="${id}" data-c="rep" data-f="${id.slice(2)}">${opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+  const stale = R && o.ran !== JSON.stringify([o.from, o.to, o.by, o.basis, o.cat, o.site]);
+  const label = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
+  const showSub = ['site', 'project', 'company', 'month', 'cat'].includes(o.by) && o.cat !== 'staff' && o.cat !== 'labour' && o.cat !== 'supply';
+  const head = `<tr><th>${esc(label)}</th><th class="num">Man-days</th><th class="num">Normal hours</th><th class="num">Overtime hours</th><th class="num">Absent days</th><th class="num">Leave days</th>${showSub ? '<th class="num">Subcontract man-days</th>' : ''}${cost ? '<th class="num">Labour cost (AED)</th>' : ''}</tr>`;
+  const line = (x, b) => `<tr>${b ? '<td><b>Total</b></td>' : `<td>${esc(x.label)}</td>`}<td class="num">${fmtH(x.md)}</td><td class="num">${fmtH(x.h)}</td><td class="num">${fmtH(x.ot)}</td><td class="num">${x.abs}</td><td class="num">${x.lv}</td>${showSub ? `<td class="num">${fmtN(x.sub)}</td>` : ''}${cost ? `<td class="num">${b ? '<b>' : ''}${Math.round(x.cost).toLocaleString('en-US')}${x.miss ? ' <span class="chip warn plain" title="Days with no rate on record">' + x.miss + ' no rate</span>' : ''}${b ? '</b>' : ''}</td>` : ''}</tr>`;
+  return ph('Reports', 'Any period, grouped the way you need. Built from the daily site registers.') +
+    `<div class="card no-print"><div class="row" style="gap:8px;margin-bottom:14px">${[['month', 'This month'], ['last', 'Last month'], ['ytd', 'Year to date'], ['lastyear', 'Last year']].map(([k, l]) => `<button class="btn out sm" data-a="repQuick" data-v="${k}">${l}</button>`).join('')}</div>
+     <div class="row" style="gap:12px;align-items:flex-end">
+      <div class="field" style="margin:0"><label for="r_from">From</label><input class="inp" type="date" id="r_from" data-c="rep" data-f="from" value="${o.from}" style="width:auto"></div>
+      <div class="field" style="margin:0"><label for="r_to">To</label><input class="inp" type="date" id="r_to" data-c="rep" data-f="to" value="${o.to}" style="width:auto"></div>
+      ${sel('r_by', o.by, GROUPS, 'Group by')}
+      ${sel('r_cat', o.cat, [['', 'All categories'], ...CATS, ['sub', 'Subcontractors (headcount)']], 'Category')}
+      ${sel('r_site', o.site, [['', 'All sites'], ...Object.entries(S.sites).sort(byName).map(([k, s]) => [k, s.name])], 'Site')}
+      ${cost ? sel('r_basis', o.basis, [['both', 'Fixed + variable cost'], ['fixed', 'Fixed cost only'], ['variable', 'Variable cost only']], 'Cost') : ''}
+      <button class="btn fill" data-a="runReport" ${o.busy ? 'disabled' : ''}>${o.busy ? 'Working…' : 'Run report'}</button></div></div>` +
+    (!R ? `<div class="card"><div class="empty"><b>Choose a period and run the report</b>For example 20 Oct to 28 Dec, grouped by project.</div></div>` :
+    `<div class="card">${stale ? '<div class="banner warn no-print">Filters changed. Run the report again to update.</div>' : ''}
+      <div class="row" style="justify-content:space-between"><div><h2>${esc(label)} · ${fmtD(o.from)} to ${fmtD(o.to)}</h2><p class="sub" style="margin:0">${R.days} day${R.days === 1 ? '' : 's'} with registers${o.site ? ' · ' + esc(nm('sites', o.site)) : ''}${o.cat ? ' · ' + esc(catName(o.cat)) : ''}${cost ? ' · ' + (o.basis === 'both' ? 'fixed + variable cost' : o.basis + ' cost only') : ''}</p></div>
+      <div class="row no-print"><button class="btn tonal sm" data-a="repPdf">Download PDF</button><button class="btn out sm" data-a="repCsv">Download Excel (CSV)</button><button class="btn text sm" data-a="print">Print</button></div></div>
+      ${R.list.length ? `<div class="tw mt"><table><thead>${head}</thead><tbody>${R.list.map(x => line(x)).join('')}</tbody><tfoot>${line(R.tot, true)}</tfoot></table></div>` : '<div class="empty"><b>No register entries in this period</b></div>'}
+      ${cost ? `<p class="note">Cost uses actual monthly cost records only: hours × (monthly cost ÷ standard hours in that month); overtime × ${HRS().otf}. Supply labour uses each company's man-day rate and counts as variable cost. Leave and absence days carry no project cost here.${R.noRate ? ' <b style="color:var(--warn)">' + R.noRate + ' person-days have no rate on record, so cost is understated. Add the missing rates under Costs and rates.</b>' : ''}</p>` : ''}</div>`);
+}
+
+// ── People and sites (master lists)
+S.pp = { tab: 'people', q: '', cat: '', site: '' };
+function vPeople() {
+  const t = S.pp.tab; const tabs = [['people', 'People'], ['sites', 'Sites'], ['trades', 'Trades'], ['companies', 'Companies']];
+  let body = '';
+  if (t === 'people') {
+    const q = S.pp.q.toLowerCase(); const list = Object.entries(S.people).filter(([k, p]) => (!S.pp.cat || p.cat === S.pp.cat) && (!S.pp.site || p.site === S.pp.site) && (!q || (p.name + ' ' + (p.empId || '') + ' ' + (p.desig || '')).toLowerCase().includes(q))).sort(byName);
+    body = `<div class="row no-print" style="gap:8px;margin-bottom:12px"><input class="inp" placeholder="Search name, ID or designation" data-c="ppQ" value="${esc(S.pp.q)}" style="flex:1;min-width:200px">
+      <select class="inp" data-c="ppCat" style="width:auto"><option value="">All categories</option>${CATS.map(([k, l]) => `<option value="${k}" ${S.pp.cat === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
+      <select class="inp" data-c="ppSite" style="width:auto"><option value="">All sites</option>${Object.entries(S.sites).sort(byName).map(([k, s]) => `<option value="${k}" ${S.pp.site === k ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
+      <button class="btn fill wi" data-a="editPerson" data-v="">Add person</button></div>
+      <div class="row no-print" style="gap:8px;margin-bottom:8px"><label class="btn out sm wi" style="position:relative">Import from CSV<input type="file" accept=".csv" data-c="importPeople" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplPeople">Download CSV template</button><span class="mmeta">${Object.keys(S.people).length} people in total</span></div>
+      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>ID</th><th>Category</th><th>Trade</th><th>Company</th><th>Department</th><th>Usual site</th><th>Status</th><th></th></tr></thead><tbody>${list.slice(0, 400).map(([k, p]) => `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.desig || '')}</div></td><td>${esc(p.empId || '')}</td><td>${catName(p.cat)}</td><td>${esc(nm('trades', p.trade))}</td><td>${p.cat === 'supply' ? esc(nm('companies', p.company)) : 'CKC'}</td><td>${esc(p.dept || '')}</td><td>${esc(nm('sites', p.site))}</td><td>${p.status === 'left' ? chip('', 'Left') : chip('good', 'Active')}</td><td><button class="btn text sm wi" data-a="editPerson" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>${list.length > 400 ? '<p class="note">Showing the first 400. Use the search or filters.</p>' : ''}` : '<div class="empty"><b>No people yet</b>Add them one by one, or import the CSV export from the HR Portal.</div>'}`;
+  } else {
+    const col = t; const extra = { sites: ['project', 'Project'], trades: ['group', 'Trade group'], companies: ['kind', 'Type'] }[t];
+    const list = Object.entries(S[col]).sort(byName);
+    body = `<div class="row no-print" style="justify-content:flex-end;margin-bottom:12px"><button class="btn fill wi" data-a="editMaster" data-v="">Add ${t === 'sites' ? 'site' : t === 'trades' ? 'trade' : 'company'}</button></div>
+      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>${extra[1]}</th>${t === 'sites' ? '<th>Region</th><th>Status</th>' : ''}<th></th></tr></thead><tbody>${list.map(([k, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${esc(t === 'companies' ? (x.kind === 'sub' ? 'Subcontractor' : 'Supply labour') : x[extra[0]] || '')}</td>${t === 'sites' ? `<td>${esc(x.region || '')}</td><td>${x.active === false ? chip('', 'Closed') : chip('good', 'Active')}</td>` : ''}<td><button class="btn text sm wi" data-a="editMaster" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>Nothing added yet</b></div>'}
+      <p class="note">${t === 'companies' ? 'One spelling per company. Timekeepers pick from this list, so totals by company always add up.' : t === 'trades' ? 'Each trade belongs to one group (Civil, MEP, Joinery, Staff, Drivers, Office) for the summaries.' : 'Sites with the same project name are added together in project reports.'}</p>`;
+  }
+  return ph('People and sites', 'Master lists used by the registers and reports. Salaries are not stored here; see Costs and rates.') +
+    `<div class="card"><div class="tabs no-print" role="tablist" style="margin-top:0">${tabs.map(([k, l]) => `<button role="tab" data-a="ppTab" data-v="${k}" aria-selected="${t === k}">${l}</button>`).join('')}</div>${body}</div>`;
+}
+function editPerson(k) {
+  const p = S.people[k] || { cat: 'labour', status: 'active' };
+  const opts = (col, filt) => [['', '— none —'], ...Object.entries(S[col]).filter(([i, x]) => !filt || filt(x)).sort(byName).map(([i, x]) => [i, x.name])];
+  modal(k ? 'Edit person' : 'Add person', [
+    { id: 'name', l: 'Full name', v: p.name }, { id: 'empId', l: 'Employee or supplier ID', v: p.empId },
+    { id: 'cat', l: 'Category', t: 'sel', v: p.cat, o: CATS }, { id: 'company', l: 'Supply company (supply labour only)', t: 'sel', v: p.company || '', o: opts('companies', x => x.kind === 'supply') },
+    { id: 'trade', l: 'Trade', t: 'sel', v: p.trade || '', o: opts('trades') }, { id: 'site', l: 'Usual site', t: 'sel', v: p.site || '', o: opts('sites') },
+    { id: 'dept', l: 'Department', v: p.dept }, { id: 'desig', l: 'Designation', v: p.desig },
+    { id: 'joined', l: 'Joined (YYYY-MM-DD)', v: p.joined }, { id: 'status', l: 'Status', t: 'sel', v: p.status || 'active', o: [['active', 'Active'], ['left', 'Left']] }
+  ], r => {
+    if (!r.name) { toast('Enter the name.'); return; }
+    if (r.cat === 'supply' && !r.company) { toast('Choose the supply company.'); return; }
+    if (r.joined && !/^\d{4}-\d{2}-\d{2}$/.test(r.joined)) { toast('Joined date must look like 2026-10-20.'); return; }
+    if (r.empId && Object.entries(S.people).some(([i, x]) => i !== k && x.empId && x.empId.toLowerCase() === r.empId.toLowerCase())) { toast('Another person already has this ID.'); return; }
+    const rec = { name: r.name.slice(0, 120), cat: r.cat, status: r.status }; ['empId', 'trade', 'site', 'dept', 'desig', 'joined'].forEach(f => { if (r[f]) rec[f] = String(r[f]).slice(0, 120); }); if (r.cat === 'supply') rec.company = r.company;
+    const id = k || push(ref(db, 'people')).key;
+    set(ref(db, 'people/' + id), rec).then(() => { log(k ? 'Person edited' : 'Person added', rec.name + (rec.empId ? ' · ' + rec.empId : '')); closeModal(); toast('Saved'); }).catch(fail);
+  });
+}
+function editMaster(k) {
+  const col = S.pp.tab; const x = S[col][k] || {};
+  const f = col === 'sites' ? [{ id: 'name', l: 'Site name', v: x.name }, { id: 'project', l: 'Project (sites with the same project are added together)', v: x.project }, { id: 'region', l: 'Region', v: x.region }, { id: 'active', l: 'Status', t: 'sel', v: x.active === false ? '0' : '1', o: [['1', 'Active'], ['0', 'Closed']] }]
+    : col === 'trades' ? [{ id: 'name', l: 'Trade', v: x.name }, { id: 'group', l: 'Trade group', t: 'sel', v: x.group || 'Civil', o: TGROUPS.map(g => [g, g]) }]
+    : [{ id: 'name', l: 'Company name (one spelling)', v: x.name }, { id: 'kind', l: 'Type', t: 'sel', v: x.kind || 'supply', o: [['supply', 'Supply labour (paid per man-day)'], ['sub', 'Subcontractor (headcount only)']] }];
+  modal((k ? 'Edit ' : 'Add ') + (col === 'sites' ? 'site' : col === 'trades' ? 'trade' : 'company'), f, r => {
+    if (!r.name) { toast('Enter the name.'); return; }
+    if (Object.entries(S[col]).some(([i, y]) => i !== k && String(y.name).trim().toLowerCase() === r.name.trim().toLowerCase())) { toast('That name already exists.'); return; }
+    const rec = { name: r.name.slice(0, 120) }; if (col === 'sites') { if (r.project) rec.project = r.project.slice(0, 120); if (r.region) rec.region = r.region.slice(0, 80); rec.active = r.active === '1'; } if (col === 'trades') rec.group = r.group; if (col === 'companies') rec.kind = r.kind;
+    const id = k || push(ref(db, col)).key;
+    set(ref(db, col + '/' + id), rec).then(() => { log((k ? 'Edited ' : 'Added ') + col.slice(0, -1), rec.name); closeModal(); toast('Saved'); }).catch(fail);
+  });
+}
+const PEOPLE_COLS = ['emp_id', 'name', 'category', 'trade', 'department', 'designation', 'site', 'company', 'status', 'joined'];
+function importPeople(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader();
+  rd.onload = () => {
+    inp.value = ''; const rows = csvParse(String(rd.result)); if (rows.length < 2) { toast('The file has no rows.'); return; }
+    const hd = rows[0].map(h => h.trim().toLowerCase()); const ix = c => hd.indexOf(c);
+    if (ix('emp_id') < 0 || ix('name') < 0 || ix('category') < 0) { toast('The first row must have at least emp_id, name and category. Download the template.'); return; }
+    const find = (col, v) => { v = String(v || '').trim().toLowerCase(); if (!v) return ''; const hit = Object.entries(S[col]).find(([k, x]) => String(x.name).trim().toLowerCase() === v); return hit ? hit[0] : null; };
+    const byId = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.empId) byId[p.empId.toLowerCase()] = k; });
+    const errs = [], upd = {}; let add = 0, chg = 0;
+    rows.slice(1).forEach((r, i) => { const g = c => ix(c) >= 0 ? String(r[ix(c)] || '').trim() : ''; const n = i + 2;
+      const id = g('emp_id'), name = g('name'); let cat = g('category').toLowerCase(); cat = /supply/.test(cat) ? 'supply' : /labou?r/.test(cat) ? 'labour' : /staff/.test(cat) ? 'staff' : '';
+      if (!id || !name || !cat) { errs.push('Row ' + n + ': emp_id, name and a category (staff, labour or supply) are needed.'); return; }
+      const rec = { name: name.slice(0, 120), empId: id.slice(0, 60), cat, status: /left|inactive/i.test(g('status')) ? 'left' : 'active' };
+      for (const [col, key, field] of [['trades', 'trade', 'trade'], ['sites', 'site', 'site'], ['companies', 'company', 'company']]) { const v = g(key); if (!v) continue; const hit = find(col, v); if (hit === null) { errs.push('Row ' + n + ': ' + key + ' "' + v + '" is not in the ' + col + ' list.'); return; } rec[field] = hit; }
+      if (cat === 'supply' && !rec.company) { errs.push('Row ' + n + ': supply labour needs a company.'); return; }
+      if (cat !== 'supply') delete rec.company;
+      if (g('department')) rec.dept = g('department').slice(0, 120); if (g('designation')) rec.desig = g('designation').slice(0, 120);
+      const j = g('joined'); if (j) { if (!/^\d{4}-\d{2}-\d{2}$/.test(j)) { errs.push('Row ' + n + ': joined must look like 2026-10-20.'); return; } rec.joined = j; }
+      const ex = byId[id.toLowerCase()]; if (ex) { upd['people/' + ex] = Object.assign({}, S.people[ex], rec); chg++; } else { const k = push(ref(db, 'people')).key; upd['people/' + k] = rec; byId[id.toLowerCase()] = k; add++; } });
+    if (errs.length) { alert('Nothing was saved. Please fix these first:\n\n' + errs.slice(0, 15).join('\n') + (errs.length > 15 ? '\n…and ' + (errs.length - 15) + ' more.' : '')); return; }
+    if (!confirm('Add ' + add + ' new people and update ' + chg + ' existing (matched by emp_id)?')) return;
+    update(ref(db), upd).then(() => { log('People imported', add + ' added, ' + chg + ' updated'); toast('Imported'); }).catch(fail);
+  }; rd.readAsText(f);
+}
+
+// ── Costs and rates (super users edit; CEO and Finance view)
+S.cr = { month: today().slice(0, 7) };
+function vCosts() {
+  const M = S.cr.month; const ed = canW(); const H0 = HRS();
+  const ckc = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort(byName);
+  const rateRows = ckc.map(([k, p]) => { const r = rateFor(k, M); const own = r && r.from === M; const fx = r ? r.fx : '', vr = r ? r.vr : '';
+    return `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.empId || '')} · ${catName(p.cat)}</div></td>
+      <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="fx_${k}" value="${own && fx != null ? esc(fx) : ''}" placeholder="${r && !own ? esc(fmtN(fx)) : '—'}" aria-label="Fixed cost">` : fmtN(fx)}</td>
+      <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="vr_${k}" value="${own && vr != null ? esc(vr) : ''}" placeholder="${r && !own ? esc(fmtN(vr)) : '—'}" aria-label="Variable cost">` : fmtN(vr)}</td>
+      <td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
+  const sup = Object.entries(S.companies).filter(([k, c]) => c.kind === 'supply').sort(byName);
+  const usedTrades = [...new Set(Object.values(S.people).filter(p => p.cat === 'supply').map(p => p.trade).filter(Boolean))].sort((a, b) => nm('trades', a).localeCompare(nm('trades', b)));
+  const sRows = sup.map(([c, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td>${usedTrades.map(t => { const v = srateFor(c, t, M); const own = S.srates[c] && S.srates[c][M] && S.srates[c][M][t] != null;
+      return `<td class="num">${ed ? `<input class="inp n wi" style="width:84px" inputmode="decimal" id="sr_${c}_${t}" value="${own ? esc(v) : ''}" placeholder="${v != null && !own ? esc(v) : '—'}" aria-label="${esc(x.name)} ${esc(nm('trades', t))} man-day rate">` : fmtN(v)}</td>`; }).join('')}</tr>`).join('');
+  return ph('Costs and rates', 'Actual monthly cost per person and supply man-day rates. Only super users, Finance and the CEO can open this page.', `<div class="row no-print"><input class="inp" type="month" data-c="crMonth" value="${M}" style="width:auto"></div>`) +
+    `<div class="card"><h2>Working hours and overtime</h2><p class="sub">Used to turn a monthly cost into an hourly cost. Finance should confirm the overtime factor against payroll practice.</p>
+      <div class="form-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))"><div class="field"><label for="hWd">Hours Monday to Friday</label>${ed ? `<input class="inp wi" id="hWd" inputmode="decimal" value="${H0.wd}">` : `<div>${H0.wd}</div>`}</div>
+      <div class="field"><label for="hSat">Hours Saturday</label>${ed ? `<input class="inp wi" id="hSat" inputmode="decimal" value="${H0.sat}">` : `<div>${H0.sat}</div>`}</div>
+      <div class="field"><label for="hOtf">Overtime factor</label>${ed ? `<input class="inp wi" id="hOtf" inputmode="decimal" value="${H0.otf}">` : `<div>${H0.otf}</div>`}</div></div>
+      ${ed ? '<button class="btn tonal wi" data-a="saveHours">Save</button>' : ''}<p class="note">Standard hours in ${esc(M)}: ${monthStd(M)}. Sundays count as 0; public holidays are not deducted yet.</p></div>` +
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC monthly cost per person · ${esc(M)}</h2><p class="sub" style="margin:0">Fixed: salary, pension, gratuity accrual, flights. Variable: medical insurance, visa, training and other actual costs. A month without its own figure uses the most recent earlier month.</p></div>
+      ${ed ? `<div class="row no-print"><label class="btn out sm wi" style="position:relative">Import CSV<input type="file" accept=".csv" data-c="importRates" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplRates">Template</button><button class="btn fill wi" data-a="saveRates">Save ${esc(M)}</button></div>` : ''}</div>
+      ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Supply labour man-day rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supplier contract, per trade. Used for cost and for checking supplier invoices.</p></div>${ed && sup.length && usedTrades.length ? '<button class="btn fill wi no-print" data-a="saveSrates">Save rates</button>' : ''}</div>
+      ${sup.length && usedTrades.length ? `<div class="tw mt"><table><thead><tr><th>Company</th>${usedTrades.map(t => `<th class="num">${esc(nm('trades', t))}</th>`).join('')}</tr></thead><tbody>${sRows}</tbody></table></div>` : '<div class="empty"><b>No supply labour yet</b>Add supply companies and supply workers first.</div>'}</div>` +
+    (ed ? `<div class="card"><h2>Close a month</h2><p class="sub">After payroll, close the month so timekeepers can no longer change its registers. Super users can still correct it, and every change is logged.</p>
+      <div class="row"><span>${esc(M)}: ${isClosed(M) ? chip('pri', 'Closed') : chip('good', 'Open')}</span><button class="btn out sm wi" data-a="closeMonth">${isClosed(M) ? 'Re-open' : 'Close'} ${esc(M)}</button></div></div>` : '');
+}
+function saveRates() {
+  const M = S.cr.month; const upd = {}; let n = 0, bad = '';
+  Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply').forEach(([k, p]) => { const a = $('#fx_' + k), b = $('#vr_' + k); if (!a || !b) return; const fx = num(a.value), vr = num(b.value);
+    if (Number.isNaN(fx) || Number.isNaN(vr) || (fx != null && fx < 0) || (vr != null && vr < 0)) { bad = p.name; return; }
+    const cur = S.rates[k] && S.rates[k][M];
+    if (fx == null && vr == null) { if (cur) { upd['rates/' + k + '/' + M] = null; n++; } return; }
+    const rec = { fx: fx || 0, vr: vr || 0 }; if (!cur || cur.fx !== rec.fx || cur.vr !== rec.vr) { upd['rates/' + k + '/' + M] = rec; n++; } });
+  if (bad) { toast('Check the figures for ' + bad + '. Numbers only.'); return; }
+  if (!n) { toast('Nothing changed.'); return; }
+  update(ref(db), upd).then(() => { log('Monthly costs saved', M + ' · ' + n + ' people'); toast('Saved ' + n); }).catch(fail);
+}
+function saveSrates() {
+  const M = S.cr.month; const upd = {}; let n = 0, bad = false;
+  document.querySelectorAll('[id^="sr_"]').forEach(el => { const [, c, t] = el.id.split('_'); const v = num(el.value); if (Number.isNaN(v) || (v != null && v < 0)) { bad = true; return; }
+    const cur = S.srates[c] && S.srates[c][M] && S.srates[c][M][t]; if (v == null) { if (cur != null) { upd['srates/' + c + '/' + M + '/' + t] = null; n++; } return; } if (cur !== v) { upd['srates/' + c + '/' + M + '/' + t] = v; n++; } });
+  if (bad) { toast('Rates must be numbers.'); return; } if (!n) { toast('Nothing changed.'); return; }
+  update(ref(db), upd).then(() => { log('Supply rates saved', M + ' · ' + n + ' rates'); toast('Saved'); }).catch(fail);
+}
+function importRates(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader();
+  rd.onload = () => { inp.value = ''; const rows = csvParse(String(rd.result)); const hd = (rows[0] || []).map(h => h.trim().toLowerCase()); const ix = c => hd.indexOf(c);
+    if (['emp_id', 'month', 'fixed', 'variable'].some(c => ix(c) < 0)) { toast('Columns needed: emp_id, month, fixed, variable. Download the template.'); return; }
+    const byId = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.empId) byId[p.empId.toLowerCase()] = k; });
+    const errs = [], upd = {}; rows.slice(1).forEach((r, i) => { const g = c => String(r[ix(c)] || '').trim(); const n = i + 2; const k = byId[g('emp_id').toLowerCase()]; const m = g('month'); const fx = num(g('fixed')), vr = num(g('variable'));
+      if (!k) { errs.push('Row ' + n + ': no person with emp_id "' + g('emp_id') + '".'); return; } if (S.people[k].cat === 'supply') { errs.push('Row ' + n + ': supply labour uses company rates, not personal rates.'); return; }
+      if (!/^\d{4}-\d{2}$/.test(m)) { errs.push('Row ' + n + ': month must look like 2026-10.'); return; }
+      if (fx == null || Number.isNaN(fx) || fx < 0 || Number.isNaN(vr) || (vr != null && vr < 0)) { errs.push('Row ' + n + ': fixed and variable must be numbers.'); return; }
+      upd['rates/' + k + '/' + m] = { fx, vr: vr || 0 }; });
+    if (errs.length) { alert('Nothing was saved. Please fix these first:\n\n' + errs.slice(0, 15).join('\n') + (errs.length > 15 ? '\n…and ' + (errs.length - 15) + ' more.' : '')); return; }
+    if (!Object.keys(upd).length) { toast('The file has no rows.'); return; }
+    if (!confirm('Save ' + Object.keys(upd).length + ' monthly cost records?')) return;
+    update(ref(db), upd).then(() => { log('Monthly costs imported', Object.keys(upd).length + ' records'); toast('Imported'); }).catch(fail); };
+  rd.readAsText(f);
+}
+
+
+// ── PDF downloads (made in the browser; nothing is stored online)
+const loadedJs = {};
+function loadJs(src) { return loadedJs[src] || (loadedJs[src] = new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => { delete loadedJs[src]; no(new Error('Could not load the PDF tool. Check the internet connection.')); }; document.head.appendChild(s); })); }
+async function pdfDoc(title, sub) {
+  await loadJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  await loadJs('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+  const doc = new window.jspdf.jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = 297, m = 12, BLUE = [26, 115, 232], INK = [31, 31, 31], MUT = [95, 99, 104];
+  const head = () => { doc.setFillColor(...BLUE); doc.rect(0, 0, W, 2.2, 'F'); doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(...MUT); doc.text('CK ARCHITECTURE INTERIORS  ·  CKC BUILDING CONTRACTING', m, 9);
+    doc.setFont('helvetica', 'normal'); doc.text('People Excellence Hub', W - m, 9, { align: 'right' }); doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...INK); doc.text(title, m, 17);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(...MUT); doc.text(doc.splitTextToSize(sub, W - 2 * m), m, 22.5); };
+  head();
+  const table = (y, headRow, rows, opts = {}) => { doc.autoTable(Object.assign({ startY: y, head: [headRow], body: rows, theme: 'grid', margin: { left: m, right: m, top: 30, bottom: 14 },
+    styles: { font: 'helvetica', fontSize: 8, cellPadding: 1.8, lineColor: [223, 227, 235], lineWidth: 0.2, textColor: INK }, headStyles: { fillColor: [240, 244, 249], textColor: [68, 71, 70], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [250, 251, 253] }, didDrawPage: d => { if (d.pageNumber > 1) head(); } }, opts)); return doc.lastAutoTable.finalY; };
+  const finish = name => { const n = doc.getNumberOfPages(), when = new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setDrawColor(223, 227, 235); doc.line(m, 200, W - m, 200); doc.setFontSize(7.5); doc.setTextColor(...MUT); doc.text('Confidential · generated ' + when + ' by ' + (S.user ? S.user.email : ''), m, 204.5); doc.text('Page ' + i + ' of ' + n, W - m, 204.5, { align: 'right' }); }
+    doc.save(name); };
+  return { doc, table, finish, m, W, MUT };
+}
+const numAlign = n => { const o = {}; for (let i = 1; i < n; i++) o[i] = { halign: 'right' }; return o; };
+async function reportPdf() {
+  const o = S.rep, R = o.res; if (!R) return; const cost = seesCost(); const lab = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
+  const showSub = ['site', 'project', 'company', 'month', 'cat'].includes(o.by) && !['staff', 'labour', 'supply'].includes(o.cat);
+  const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days'].concat(showSub ? ['Subcontract man-days'] : [], cost ? ['Labour cost (AED)'] : []);
+  const ln = (x, t) => [t || x.label, fmtH(x.md), fmtH(x.h), fmtH(x.ot), String(x.abs), String(x.lv)].concat(showSub ? [fmtN(x.sub)] : [], cost ? [Math.round(x.cost).toLocaleString('en-US') + (x.miss ? '  (' + x.miss + ' no rate)' : '')] : []);
+  const sub = fmtD(o.from) + ' to ' + fmtD(o.to) + ' · grouped by ' + lab.toLowerCase() + (o.site ? ' · ' + nm('sites', o.site) : '') + (o.cat ? ' · ' + catName(o.cat) : '') + (cost ? ' · ' + (o.basis === 'both' ? 'fixed + variable cost' : o.basis + ' cost only') : '') + ' · ' + R.days + ' days with registers';
+  try {
+    const P = await pdfDoc('Manpower and labour cost report', sub);
+    let y = P.table(31, hd, R.list.map(x => ln(x)).concat([ln(R.tot, 'Total')]), { columnStyles: numAlign(hd.length), didParseCell: d => { if (d.section === 'body' && d.row.index === R.list.length) { d.cell.styles.fontStyle = 'bold'; d.cell.styles.fillColor = [232, 240, 254]; } } });
+    if (cost) { P.doc.setFontSize(7.5); P.doc.setTextColor(...P.MUT); P.doc.text(P.doc.splitTextToSize('Cost uses actual monthly cost records only: hours x (monthly cost / standard hours in that month); overtime x ' + HRS().otf + '. Supply labour uses each company\'s man-day rate (variable cost). Leave and absence carry no project cost.' + (R.noRate ? ' ' + R.noRate + ' person-days have no rate on record, so cost is understated.' : ''), P.W - 2 * P.m), P.m, Math.min(y + 6, 195)); }
+    P.finish('PEH-report-' + o.by + '-' + o.from + '-to-' + o.to + '.pdf'); log('Report PDF downloaded', lab + ' · ' + o.from + ' to ' + o.to);
+  } catch (e) { toast(e.message || 'Could not make the PDF.'); }
+}
+async function manpowerPdf() {
+  const D = S.mp.date, m = D.slice(0, 7), d = D.slice(8); await loadMonths([m]); const day = (attCache[m] || {})[d] || {};
+  const sites = Object.entries(S.sites).filter(([k, s]) => s.active !== false || day[k]).sort(byName); const comp = {}; const st = {}; const T = { staff: 0, labour: 0, supply: 0, sub: 0, al: 0, miss: 0 };
+  const rows = sites.map(([sid, s]) => { const r = day[sid]; const x = { staff: 0, labour: 0, supply: 0, sub: 0, al: 0 };
+    if (r) { Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { cat: 'labour' }; st[a.s] = (st[a.s] || 0) + 1; if (a.s === 'P' || a.s === 'WFH') { x[p.cat]++; if (p.cat === 'supply') { comp[p.company] = comp[p.company] || { n: 0, k: 'Supply labour' }; comp[p.company].n++; } } else x.al++; });
+      Object.entries(r.sub || {}).forEach(([c, n]) => { x.sub += Number(n); comp[c] = comp[c] || { n: 0, k: 'Subcontractor' }; comp[c].n += Number(n); }); } else T.miss++;
+    Object.keys(x).forEach(k => T[k] += x[k]);
+    return [s.name, String(x.staff), String(x.labour), String(x.supply), String(x.sub), String(x.staff + x.labour + x.supply + x.sub), String(x.al), r ? 'Submitted' : 'NOT SUBMITTED']; });
+  const tot = T.staff + T.labour + T.supply + T.sub;
+  try {
+    const P = await pdfDoc('Daily manpower report · ' + new Date(D + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
+      'Total deployed ' + tot + ' · CKC ' + (T.staff + T.labour) + ' (' + T.staff + ' staff, ' + T.labour + ' labour) · supply ' + T.supply + ' · subcontract ' + T.sub + ' · registers missing ' + T.miss + ' of ' + sites.length + '\nCKC and supply status: ' + STAT.map(([c, l]) => l + ' ' + (st[c] || 0)).join(' · '));
+    const hd = ['Site', 'CKC staff', 'CKC labour', 'Supply', 'Subcontract', 'Total', 'Absent / leave', 'Register'];
+    let y = P.table(34, hd, rows.concat([['Total', String(T.staff), String(T.labour), String(T.supply), String(T.sub), String(tot), String(T.al), '']]), { columnStyles: Object.assign(numAlign(7), { 7: { halign: 'left' } }),
+      didParseCell: c => { if (c.section === 'body' && c.row.index === rows.length) { c.cell.styles.fontStyle = 'bold'; c.cell.styles.fillColor = [232, 240, 254]; } if (c.section === 'body' && c.column.index === 7 && c.cell.raw === 'NOT SUBMITTED') c.cell.styles.textColor = [197, 34, 31]; } });
+    const cr = Object.entries(comp).sort((a, b) => b[1].n - a[1].n).map(([c, x]) => [nm('companies', c), x.k, String(x.n)]);
+    if (y > 150) { P.doc.addPage(); y = 26; }
+    P.table(y + 8, ['Company', 'Type', 'Headcount'], cr.length ? cr : [['None', '', '']], { tableWidth: 160, columnStyles: { 2: { halign: 'right' } } });
+    P.finish('PEH-daily-manpower-' + D + '.pdf'); log('Daily report PDF downloaded', D);
+  } catch (e) { toast(e.message || 'Could not make the PDF.'); }
+}
+
+// ── events
+const ACT = {
+  signin: async () => {
+    const em = $('#em').value.trim(), pw = $('#pw').value, msg = $('#gateMsg'), b = $('#signBtn'); msg.className = 'msg';
+    if (!em || !pw) { msg.className = 'msg err'; msg.textContent = 'Enter your email and password.'; return; }
+    b.disabled = true; msg.textContent = 'Signing in…';
+    try { await signInWithEmailAndPassword(auth, em, pw); $('#pw').value = ''; msg.textContent = ''; }
+    catch (e) { msg.className = 'msg err'; msg.textContent = /too-many/.test(e.code || '') ? 'Too many attempts. Wait a few minutes, or reset your password.' : /network/.test(e.code || '') ? 'No internet connection.' : 'Incorrect email or password.'; }
+    b.disabled = false;
+  },
+  forgot: async () => { const em = $('#em').value.trim(), msg = $('#gateMsg'); if (!/@/.test(em)) { msg.className = 'msg err'; msg.textContent = 'Type your email first, then tap "Forgot password?".'; return; }
+    try { await sendPasswordResetEmail(auth, em); } catch (e) {} msg.className = 'msg ok'; msg.textContent = 'If this email has an account, a reset link has been sent. Check your spam folder too.'; },
+  signout: () => { S.view = ''; S.sel = ''; signOut(auth).finally(() => location.reload()); },
+  menu: () => $('#rail').classList.toggle('open'),
+  nav: b => { const v = b.dataset.v; if (S.view === 'register' && v !== 'register' && S.reg.edited && !confirm('Unsaved changes on this register will be lost. Continue?')) return; if (v === 'mine') { S.view = 'cards'; S.sel = myOwner(); } else S.view = v; S.tab = 'results'; if (v === 'register') S.reg.site = S.reg.site || ''; $('#rail').classList.remove('open'); draw(); window.scrollTo(0, 0); },
+  open: b => { S.view = 'cards'; S.sel = b.dataset.o; S.tab = 'results'; draw(); },
+  pick: b => { S.sel = b.dataset.o; draw(); },
+  tab: b => { S.tab = b.dataset.v; draw(); },
+  ptype: b => { S.ptype = b.dataset.v; S.pkey = S.ptype === 'W' ? nowWeek() : nowMonth(); draw(); },
+  pshift: b => { S.pkey = shiftP(S.pkey, Number(b.dataset.v)); draw(); },
+  pnow: () => { S.pkey = S.ptype === 'W' ? nowWeek() : nowMonth(); draw(); },
+  print: () => window.print(),
+  saveEntry: b => saveEntry(b.dataset.o, b.dataset.m),
+  confirm: b => confirmMoney(b.dataset.o, b.dataset.p, b.dataset.m),
+  lock: b => { const o = b.dataset.o, P = S.pkey, on = !locked(o, P); const r = ref(db, 'locks/' + o + '/' + P);
+    (on ? set(r, true) : remove(r)).then(() => { log(on ? 'Period locked' : 'Period unlocked', (S.owners[o] || {}).name + ' · ' + P); toast(on ? 'Locked' : 'Unlocked'); }).catch(fail); },
+  editOwner: b => editOwner(b.dataset.o),
+  delOwner: b => { const o = b.dataset.o, x = S.owners[o]; if (!confirm('Delete the scorecard for ' + x.name + ', with all its measures and entries? This cannot be undone. Download a backup first if unsure.')) return;
+    update(ref(db), { ['owners/' + o]: null, ['measures/' + o]: null, ['entries/' + o]: null, ['locks/' + o]: null }).then(() => { log('Scorecard deleted', x.name); toast('Deleted'); }).catch(fail); },
+  editMeasure: b => editMeasure(b.dataset.o, b.dataset.m),
+  delMeasure: b => { const o = b.dataset.o, k = b.dataset.m, m = (S.measures[o] || {})[k] || {}; if (!confirm('Delete "' + m.n + '" and all its entries?')) return;
+    const upd = { ['measures/' + o + '/' + k]: null }; Object.keys(S.entries[o] || {}).forEach(p => { if (S.entries[o][p][k]) upd['entries/' + o + '/' + p + '/' + k] = null; });
+    update(ref(db), upd).then(() => { log('Measure deleted', (S.owners[o] || {}).name + ': ' + m.n); closeModal(); toast('Deleted'); }).catch(fail); },
+  addDelay, delDelay: b => { if (!confirm('Delete this entry?')) return; const d = S.delays[b.dataset.v]; remove(ref(db, 'delays/' + b.dataset.v)).then(() => { log('Delay deleted', (d && d.project) || ''); toast('Deleted'); }).catch(fail); },
+  saveAccess: b => saveAccess(b.dataset.v),
+  dropAccess: b => { const u = b.dataset.v, a = S.access[u] || {}; if (!confirm('Remove access for ' + (a.email || u) + '? They will see nothing until you give access again.')) return;
+    remove(ref(db, 'access/' + u)).then(() => { log('Access removed', a.email || u); toast('Removed'); }).catch(fail); },
+  saveCauses: () => { const r = {}; CAUSES.filter(c => c[0] !== 'client').forEach(([k]) => r[k] = $('#co_' + k).value); r.client = '';
+    set(ref(db, 'settings/causeOwner'), r).then(() => { log('Delay scoring updated', Object.entries(r).filter(e => e[1]).map(([k, v]) => k + '→' + ((S.owners[v] || {}).name || v)).join(', ')); toast('Saved'); }).catch(fail); },
+  backup: exportBackup,
+  closeModal: (b, ev) => { if (ev.target === b) closeModal(); },
+  modalSave: () => modal.save && modal.save(),
+  saveReg, markAll: () => { Object.entries(S.reg.draft.w).forEach(([k, r]) => { r.s = 'P'; if (!r.h) r.h = stdDay(S.reg.date); }); S.reg.edited = true; draw(); },
+  regDrop: b => { delete S.reg.draft.w[b.dataset.v]; S.reg.edited = true; draw(); },
+  addWorker: () => { const k = $('#addW').value; if (!k) return; S.reg.draft.w[k] = { s: 'P', h: stdDay(S.reg.date), ot: 0 }; S.reg.edited = true; draw(); },
+  addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
+  runReport, repQuick: b => repQuick(b.dataset.v), repPdf: reportPdf, mpPdf: manpowerPdf,
+  repCsv: () => { const o = S.rep, R = o.res; if (!R) return; const cost = seesCost(); const lab = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
+    const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days', 'Subcontract man-days'].concat(cost ? ['Labour cost (AED)', 'Days without rate'] : []);
+    const ln = (x, t) => [t || x.label, Math.round(x.md * 10) / 10, Math.round(x.h * 10) / 10, Math.round(x.ot * 10) / 10, x.abs, x.lv, x.sub].concat(cost ? [Math.round(x.cost), x.miss] : []);
+    csvDownload('PEH-report-' + o.by + '-' + o.from + '-to-' + o.to + '.csv', [['PEH report', lab, o.from + ' to ' + o.to, cost ? 'Cost basis: ' + o.basis : ''], [], hd, ...R.list.map(x => ln(x)), ln(R.tot, 'Total')]); log('Report downloaded', lab + ' · ' + o.from + ' to ' + o.to); },
+  ppTab: b => { S.pp.tab = b.dataset.v; draw(); },
+  editPerson: b => editPerson(b.dataset.v), editMaster: b => editMaster(b.dataset.v),
+  tplPeople: () => csvDownload('PEH-people-template.csv', [PEOPLE_COLS, ['E1001', 'Sample Name', 'labour', 'Mason', 'Projects', 'Mason', 'Sample site', '', 'active', '2026-01-15']]),
+  tplRates: () => csvDownload('PEH-monthly-cost-template.csv', [['emp_id', 'month', 'fixed', 'variable'], ['E1001', S.cr.month, '0', '0']]),
+  saveRates, saveSrates,
+  saveHours: () => { const wd = num($('#hWd').value), sat = num($('#hSat').value), otf = num($('#hOtf').value); if ([wd, sat, otf].some(v => v == null || Number.isNaN(v) || v < 0) || wd > 24 || sat > 24 || otf > 5) { toast('Check the hours and overtime factor.'); return; }
+    set(ref(db, 'settings/hours'), { wd, sat, otf }).then(() => { log('Working hours saved', wd + ' / ' + sat + ' h, OT x' + otf); toast('Saved'); }).catch(fail); },
+  closeMonth: () => { const M = S.cr.month, on = !isClosed(M); if (!confirm((on ? 'Close ' : 'Re-open ') + M + '? ' + (on ? 'Timekeepers will no longer be able to change its registers.' : 'Timekeepers can edit recent registers again.'))) return;
+    (on ? set(ref(db, 'closed/' + M), true) : remove(ref(db, 'closed/' + M))).then(() => { log(on ? 'Month closed' : 'Month re-opened', M); toast(on ? 'Closed' : 'Re-opened'); }).catch(fail); }
+};
+document.addEventListener('click', ev => { const b = ev.target.closest('[data-a]'); if (!b || b.disabled) return; const f = ACT[b.dataset.a]; if (f) f(b, ev); });
+document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
+  if (c === 'dmonth') { S.dmonth = t.value || S.dmonth; draw(); }
+  else if (c === 'starter') loadStarter(t);
+  else if (c === 'regDate') { if (!t.value) return; if (S.reg.edited && !confirm('Unsaved changes on this register will be lost. Continue?')) { t.value = S.reg.date; return; } S.reg.date = t.value; openReg(); draw(); }
+  else if (c === 'regSite') { if (S.reg.edited && !confirm('Unsaved changes on this register will be lost. Continue?')) { t.value = S.reg.site; return; } S.reg.site = t.value; openReg(); draw(); }
+  else if (c === 'reg') { const r = S.reg.draft.w[t.dataset.k]; if (!r) return; const f = t.dataset.f; if (f === 's') { r.s = t.value; if (r.s === 'P' || r.s === 'WFH') { if (!Number(r.h)) r.h = stdDay(S.reg.date); } else { r.h = 0; r.ot = 0; } } else { const v = num(t.value); r[f] = Number.isNaN(v) || v == null ? 0 : v; } S.reg.edited = true; draw(); }
+  else if (c === 'regSub') { const v = num(t.value); S.reg.draft.sub[t.dataset.k] = Number.isNaN(v) || v == null ? 0 : Math.max(0, Math.round(v)); S.reg.edited = true; draw(); }
+  else if (c === 'mpDate') { S.mp.date = t.value || today(); draw(); }
+  else if (c === 'rep') { S.rep[t.dataset.f] = t.value; draw(); }
+  else if (c === 'ppQ') { S.pp.q = t.value; draw(); } else if (c === 'ppCat') { S.pp.cat = t.value; draw(); } else if (c === 'ppSite') { S.pp.site = t.value; draw(); }
+  else if (c === 'importPeople') importPeople(t); else if (c === 'importRates') importRates(t);
+  else if (c === 'crMonth') { S.cr.month = t.value || S.cr.month; draw(); } });
+document.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !$('#gate').hidden && (ev.target.id === 'pw' || ev.target.id === 'em')) ACT.signin(); if (ev.key === 'Escape' && $('#modal').innerHTML) closeModal(); });
+</script>
+</body>
+</html>
