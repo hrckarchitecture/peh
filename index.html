@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v2.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v2.3. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -400,7 +400,7 @@ function draw() {
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'closeMonth', 'addDelay']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -824,7 +824,7 @@ function vManpower() {
 }
 
 // ── Reports (any period)
-const GROUPS = [['person', 'Person'], ['site', 'Site'], ['project', 'Project'], ['trade', 'Trade'], ['tgroup', 'Trade group'], ['company', 'Company'], ['cat', 'Category'], ['dept', 'Department'], ['month', 'Month']];
+const GROUPS = [['person', 'Person'], ['site', 'Site'], ['project', 'Project'], ['trade', 'Trade'], ['tgroup', 'Trade group'], ['company', 'Company'], ['cat', 'Category'], ['dept', 'Department'], ['entity', 'Company (CK / CKC)'], ['month', 'Month']];
 S.rep = { from: today().slice(0, 8) + '01', to: today(), by: 'project', basis: 'both', cat: '', site: '', res: null, busy: false };
 function keyOf(by, p, pid, sid, date) {
   const s = S.sites[sid] || {};
@@ -837,6 +837,7 @@ function keyOf(by, p, pid, sid, date) {
     case 'company': return p.cat === 'supply' || p.cat === 'sub' ? [p.company, nm('companies', p.company)] : ['CKC', 'CKC'];
     case 'cat': return [p.cat, catName(p.cat)];
     case 'dept': return [p.dept || '-', p.dept || 'Not set'];
+    case 'entity': return [p.entity || (p.cat === 'supply' || p.cat === 'sub' ? 'Supply / subcontract' : '-'), p.entity || (p.cat === 'supply' || p.cat === 'sub' ? 'Supply / subcontract' : 'Not set')];
     case 'month': { const k = date.slice(0, 7); return [k, new Date(k + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })]; }
   }
 }
@@ -894,16 +895,17 @@ function vReports() {
 // ── People and sites (master lists)
 S.pp = { tab: 'people', q: '', cat: '', site: '' };
 function vPeople() {
-  const t = S.pp.tab; const tabs = [['people', 'People'], ['sites', 'Sites'], ['trades', 'Trades'], ['companies', 'Companies']];
+  const t = S.pp.tab; const tabs = [['people', 'People'], ['sites', 'Sites'], ['trades', 'Trades'], ['companies', 'Companies']].concat(S.imp ? [['import', 'Review import']] : []);
   let body = '';
-  if (t === 'people') {
+  if (t === 'import') body = vImport();
+  else if (t === 'people') {
     const q = S.pp.q.toLowerCase(); const list = Object.entries(S.people).filter(([k, p]) => (!S.pp.cat || p.cat === S.pp.cat) && (!S.pp.site || p.site === S.pp.site) && (!q || (p.name + ' ' + (p.empId || '') + ' ' + (p.desig || '')).toLowerCase().includes(q))).sort(byName);
     body = `<div class="row no-print" style="gap:8px;margin-bottom:12px"><input class="inp" placeholder="Search name, ID or designation" data-c="ppQ" value="${esc(S.pp.q)}" style="flex:1;min-width:200px">
       <select class="inp" data-c="ppCat" style="width:auto"><option value="">All categories</option>${CATS.map(([k, l]) => `<option value="${k}" ${S.pp.cat === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <select class="inp" data-c="ppSite" style="width:auto"><option value="">All sites</option>${Object.entries(S.sites).sort(byName).map(([k, s]) => `<option value="${k}" ${S.pp.site === k ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>
       <button class="btn fill wi" data-a="editPerson" data-v="">Add person</button></div>
-      <div class="row no-print" style="gap:8px;margin-bottom:8px"><label class="btn out sm wi" style="position:relative">Import from CSV<input type="file" accept=".csv" data-c="importPeople" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplPeople">Download CSV template</button><span class="mmeta">${Object.keys(S.people).length} people in total</span></div>
-      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>ID</th><th>Category</th><th>Trade</th><th>Company</th><th>Department</th><th>Usual site</th><th>Status</th><th></th></tr></thead><tbody>${list.slice(0, 400).map(([k, p]) => `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.desig || '')}</div></td><td>${esc(p.empId || '')}</td><td>${catName(p.cat)}</td><td>${esc(nm('trades', p.trade))}</td><td>${p.cat === 'supply' ? esc(nm('companies', p.company)) : 'CKC'}</td><td>${esc(p.dept || '')}</td><td>${esc(nm('sites', p.site))}</td><td>${p.status === 'left' ? chip('', 'Left') : chip('good', 'Active')}</td><td><button class="btn text sm wi" data-a="editPerson" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>${list.length > 400 ? '<p class="note">Showing the first 400. Use the search or filters.</p>' : ''}` : '<div class="empty"><b>No people yet</b>Add them one by one, or import the CSV export from the HR Portal.</div>'}`;
+      <div class="row no-print" style="gap:8px;margin-bottom:8px"><label class="btn tonal sm wi" style="position:relative">Import from HR Portal (Excel)<input type="file" accept=".xlsx,.xls" data-c="hrFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><label class="btn out sm wi" style="position:relative">Import from CSV<input type="file" accept=".csv" data-c="importPeople" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplPeople">Download CSV template</button><span class="mmeta">${Object.keys(S.people).length} people in total</span></div>
+      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>ID</th><th>Category</th><th>Trade</th><th>Company</th><th>Department</th><th>Usual site</th><th>Status</th><th></th></tr></thead><tbody>${list.slice(0, 400).map(([k, p]) => `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.desig || '')}${p.entity ? ' · ' + esc(p.entity) : ''}</div></td><td>${esc(p.empId || '')}</td><td>${catName(p.cat)}</td><td>${esc(nm('trades', p.trade))}</td><td>${p.cat === 'supply' ? esc(nm('companies', p.company)) : 'CKC'}</td><td>${esc(p.dept || '')}</td><td>${esc(nm('sites', p.site))}</td><td>${p.status === 'left' ? chip('', 'Left') : chip('good', 'Active')}</td><td><button class="btn text sm wi" data-a="editPerson" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>${list.length > 400 ? '<p class="note">Showing the first 400. Use the search or filters.</p>' : ''}` : '<div class="empty"><b>No people yet</b>Add them one by one, or import the CSV export from the HR Portal.</div>'}`;
   } else {
     const col = t; const extra = { sites: ['project', 'Project'], trades: ['group', 'Trade group'], companies: ['kind', 'Type'] }[t];
     const list = Object.entries(S[col]).sort(byName);
@@ -921,14 +923,14 @@ function editPerson(k) {
     { id: 'name', l: 'Full name', v: p.name }, { id: 'empId', l: 'Employee or supplier ID', v: p.empId },
     { id: 'cat', l: 'Category', t: 'sel', v: p.cat, o: CATS }, { id: 'company', l: 'Supply company (supply labour only)', t: 'sel', v: p.company || '', o: opts('companies', x => x.kind === 'supply') },
     { id: 'trade', l: 'Trade', t: 'sel', v: p.trade || '', o: opts('trades') }, { id: 'site', l: 'Usual site', t: 'sel', v: p.site || '', o: opts('sites') },
-    { id: 'dept', l: 'Department', v: p.dept }, { id: 'desig', l: 'Designation', v: p.desig },
+    { id: 'dept', l: 'Department', v: p.dept }, { id: 'desig', l: 'Designation', v: p.desig }, { id: 'entity', l: 'Company (entity)', v: p.entity },
     { id: 'joined', l: 'Joined (YYYY-MM-DD)', v: p.joined }, { id: 'status', l: 'Status', t: 'sel', v: p.status || 'active', o: [['active', 'Active'], ['left', 'Left']] }
   ], r => {
     if (!r.name) { toast('Enter the name.'); return; }
     if (r.cat === 'supply' && !r.company) { toast('Choose the supply company.'); return; }
     if (r.joined && !/^\d{4}-\d{2}-\d{2}$/.test(r.joined)) { toast('Joined date must look like 2026-10-20.'); return; }
     if (r.empId && Object.entries(S.people).some(([i, x]) => i !== k && x.empId && x.empId.toLowerCase() === r.empId.toLowerCase())) { toast('Another person already has this ID.'); return; }
-    const rec = { name: r.name.slice(0, 120), cat: r.cat, status: r.status }; ['empId', 'trade', 'site', 'dept', 'desig', 'joined'].forEach(f => { if (r[f]) rec[f] = String(r[f]).slice(0, 120); }); if (r.cat === 'supply') rec.company = r.company;
+    const rec = { name: r.name.slice(0, 120), cat: r.cat, status: r.status }; ['empId', 'trade', 'site', 'dept', 'desig', 'joined', 'entity'].forEach(f => { if (r[f]) rec[f] = String(r[f]).slice(0, 120); }); if (r.cat === 'supply') rec.company = r.company;
     const id = k || push(ref(db, 'people')).key;
     set(ref(db, 'people/' + id), rec).then(() => { log(k ? 'Person edited' : 'Person added', rec.name + (rec.empId ? ' · ' + rec.empId : '')); closeModal(); toast('Saved'); }).catch(fail);
   });
@@ -946,7 +948,7 @@ function editMaster(k) {
     set(ref(db, col + '/' + id), rec).then(() => { log((k ? 'Edited ' : 'Added ') + col.slice(0, -1), rec.name); closeModal(); toast('Saved'); }).catch(fail);
   });
 }
-const PEOPLE_COLS = ['emp_id', 'name', 'category', 'trade', 'department', 'designation', 'site', 'company', 'status', 'joined'];
+const PEOPLE_COLS = ['emp_id', 'name', 'category', 'trade', 'department', 'designation', 'site', 'company', 'status', 'joined', 'entity'];
 function importPeople(inp) {
   const f = inp.files && inp.files[0]; if (!f) return; const rd = new FileReader();
   rd.onload = () => {
@@ -963,7 +965,7 @@ function importPeople(inp) {
       for (const [col, key, field] of [['trades', 'trade', 'trade'], ['sites', 'site', 'site'], ['companies', 'company', 'company']]) { const v = g(key); if (!v) continue; const hit = find(col, v); if (hit === null) { errs.push('Row ' + n + ': ' + key + ' "' + v + '" is not in the ' + col + ' list.'); return; } rec[field] = hit; }
       if (cat === 'supply' && !rec.company) { errs.push('Row ' + n + ': supply labour needs a company.'); return; }
       if (cat !== 'supply') delete rec.company;
-      if (g('department')) rec.dept = g('department').slice(0, 120); if (g('designation')) rec.desig = g('designation').slice(0, 120);
+      if (g('department')) rec.dept = g('department').slice(0, 120); if (g('designation')) rec.desig = g('designation').slice(0, 120); if (g('entity')) rec.entity = g('entity').slice(0, 120);
       const j = g('joined'); if (j) { if (!/^\d{4}-\d{2}-\d{2}$/.test(j)) { errs.push('Row ' + n + ': joined must look like 2026-10-20.'); return; } rec.joined = j; }
       const ex = byId[id.toLowerCase()]; if (ex) { upd['people/' + ex] = Object.assign({}, S.people[ex], rec); chg++; } else { const k = push(ref(db, 'people')).key; upd['people/' + k] = rec; byId[id.toLowerCase()] = k; add++; } });
     if (errs.length) { alert('Nothing was saved. Please fix these first:\n\n' + errs.slice(0, 15).join('\n') + (errs.length > 15 ? '\n…and ' + (errs.length - 15) + ' more.' : '')); return; }
@@ -981,14 +983,14 @@ function vCosts() {
     return `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.empId || '')} · ${catName(p.cat)}</div></td>
       <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="fx_${k}" value="${own && fx != null ? esc(fx) : ''}" placeholder="${r && !own ? esc(fmtN(fx)) : '—'}" aria-label="Fixed cost">` : fmtN(fx)}</td>
       <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="vr_${k}" value="${own && vr != null ? esc(vr) : ''}" placeholder="${r && !own ? esc(fmtN(vr)) : '—'}" aria-label="Variable cost">` : fmtN(vr)}</td>
-      <td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
+      <td class="num">${r && r.g != null ? fmtN(r.g) : '<span class="mmeta">—</span>'}</td><td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
   const cos = Object.entries(S.companies).sort((a, b) => (a[1].kind === b[1].kind ? 0 : a[1].kind === 'supply' ? -1 : 1) || String(a[1].name).localeCompare(b[1].name));
   const cRows = cos.map(([c, x]) => { const bas = coBasis(c); const r = crateFor(c, M); const own = S.crates[c] && S.crates[c][M];
     return `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td>
       <td>${ed ? `<select class="inp wi" id="cb_${c}" style="width:auto">${(x.kind === 'sub' ? ['hour', 'day', 'contract'] : ['hour', 'day']).map(v => `<option value="${v}" ${bas === v ? 'selected' : ''}>${basisName(v)}</option>`).join('')}</select>` : basisName(bas)}</td>
       <td class="num">${bas === 'contract' ? '<span class="mmeta">—</span>' : ed ? `<input class="inp n wi" inputmode="decimal" id="cr_${c}" value="${own ? esc(own.r) : ''}" placeholder="${r && !own ? esc(fmtN(r.r)) : '—'}" aria-label="${esc(x.name)} rate">` : (r ? fmtN(r.r) + ' / ' + (r.u === 'day' ? 'day' : 'hour') : '—')}</td>
       <td>${bas === 'contract' ? chip('', 'Contract') : !r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)} (${r.u === 'day' ? 'daily' : 'hourly'})</span>`}</td></tr>`; }).join('');
-  return ph('Costs and rates', 'Actual monthly cost per person and supply man-day rates. Only super users, Finance and the CEO can open this page.', `<div class="row no-print"><input class="inp" type="month" data-c="crMonth" value="${M}" style="width:auto"></div>`) +
+  return ph('Costs and rates', 'Actual monthly cost per person and company rates. Only super users, Finance and the CEO can open this page; the database refuses everyone else.', `<div class="row no-print"><input class="inp" type="month" data-c="crMonth" value="${M}" style="width:auto"></div>`) + (S.cimp && ed ? vCostImport() : '') +
     `<div class="card"><h2>Working hours and overtime</h2><p class="sub">Used to turn a monthly cost into an hourly cost. Finance should confirm the overtime factor against payroll practice.</p>
       <div class="form-grid" style="grid-template-columns:repeat(4,minmax(0,1fr))"><div class="field"><label for="hWd">Hours Monday to Friday</label>${ed ? `<input class="inp wi" id="hWd" inputmode="decimal" value="${H0.wd}">` : `<div>${H0.wd}</div>`}</div>
       <div class="field"><label for="hSat">Hours Saturday</label>${ed ? `<input class="inp wi" id="hSat" inputmode="decimal" value="${H0.sat}">` : `<div>${H0.sat}</div>`}</div>
@@ -996,8 +998,8 @@ function vCosts() {
       <div class="field"><label for="hSotf">Company overtime factor</label>${ed ? `<input class="inp wi" id="hSotf" inputmode="decimal" value="${H0.sotf}">` : `<div>${H0.sotf}</div>`}</div></div>
       ${ed ? '<button class="btn tonal wi" data-a="saveHours">Save</button>' : ''}<p class="note">Standard hours in ${esc(M)}: ${monthStd(M)}. Sundays count as 0; public holidays are not deducted yet.</p></div>` +
     `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC monthly cost per person · ${esc(M)}</h2><p class="sub" style="margin:0">Fixed: salary, pension, gratuity accrual, flights. Variable: medical insurance, visa, training and other actual costs. A month without its own figure uses the most recent earlier month.</p></div>
-      ${ed ? `<div class="row no-print"><label class="btn out sm wi" style="position:relative">Import CSV<input type="file" accept=".csv" data-c="importRates" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplRates">Template</button><button class="btn fill wi" data-a="saveRates">Save ${esc(M)}</button></div>` : ''}</div>
-      ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
+      ${ed ? `<div class="row no-print"><label class="btn tonal sm wi" style="position:relative">Import from HR Portal (Excel)<input type="file" accept=".xlsx,.xls" data-c="costFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><label class="btn out sm wi" style="position:relative">Import CSV<input type="file" accept=".csv" data-c="importRates" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplRates">Template</button><button class="btn fill wi" data-a="saveRates">Save ${esc(M)}</button></div>` : ''}</div>
+      ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th class="num">of which gross salary</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
     `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Company rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supply or subcontract agreement. Choose hourly or daily per company; subcontractors on a lump-sum or measured contract are set to Contract and are not costed from hours.</p></div>${ed && cos.length ? '<button class="btn fill wi no-print" data-a="saveCrates">Save rates</button>' : ''}</div>
       ${cos.length ? `<div class="tw mt"><table><thead><tr><th>Company</th><th>Type</th><th>Costed by</th><th class="num">Rate (AED)</th><th></th></tr></thead><tbody>${cRows}</tbody></table></div>` : '<div class="empty"><b>No companies yet</b>Add them under People and sites → Companies.</div>'}</div>` +
     (ed ? `<div class="card"><h2>Close a month</h2><p class="sub">After payroll, close the month so timekeepers can no longer change its registers. Super users can still correct it, and every change is logged.</p>
@@ -1009,7 +1011,7 @@ function saveRates() {
     if (Number.isNaN(fx) || Number.isNaN(vr) || (fx != null && fx < 0) || (vr != null && vr < 0)) { bad = p.name; return; }
     const cur = S.rates[k] && S.rates[k][M];
     if (fx == null && vr == null) { if (cur) { upd['rates/' + k + '/' + M] = null; n++; } return; }
-    const rec = { fx: fx || 0, vr: vr || 0 }; if (!cur || cur.fx !== rec.fx || cur.vr !== rec.vr) { upd['rates/' + k + '/' + M] = rec; n++; } });
+    const rec = Object.assign({}, cur || {}, { fx: fx || 0, vr: vr || 0 }); if (!cur || cur.fx !== rec.fx || cur.vr !== rec.vr) { upd['rates/' + k + '/' + M] = rec; n++; } });
   if (bad) { toast('Check the figures for ' + bad + '. Numbers only.'); return; }
   if (!n) { toast('Nothing changed.'); return; }
   update(ref(db), upd).then(() => { log('Monthly costs saved', M + ' · ' + n + ' people'); toast('Saved ' + n); }).catch(fail);
@@ -1256,6 +1258,160 @@ async function dashPdf() {
   } catch (e) { toast(e.message || 'Could not make the PDF.'); }
 }
 
+
+// ══ Step 2.2: import staff from the HR Portal "Workforce Summary" Excel (Staff List sheet) ══
+// Nothing is saved until the review screen is confirmed. Salaries and nationality are never read.
+S.imp = null;
+const guessGroup = (desig, cat) => { const d = String(desig || '').toLowerCase();
+  if (cat === 'staff') return /driver/.test(d) ? 'Drivers' : 'Staff';
+  if (/driver/.test(d)) return 'Drivers'; if (/elect|plumb|\bac\b|a\/c|hvac|duct|mep|chiller|technician|fire ?fight/.test(d)) return 'MEP';
+  if (/joiner|joinery|polish|upholst|spray|cnc|machine|carpenter.*(factory|workshop)/.test(d)) return 'Joinery';
+  if (/office|account|admin|clerk|recept|secretar|\bhr\b|it /.test(d)) return 'Office'; return 'Civil'; };
+function parseJoined(v) {
+  if (v instanceof Date && !isNaN(v)) return ymd(v);
+  if (typeof v === 'number' && v > 20000 && v < 80000) { const d = new Date(Date.UTC(1899, 11, 30) + v * 864e5); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0') + '-' + String(d.getUTCDate()).padStart(2, '0'); }
+  const s = String(v || '').trim(); if (!s) return ''; let m;
+  if ((m = s.match(/^(\d{4})-(\d{2})-(\d{2})/))) return m[1] + '-' + m[2] + '-' + m[3];
+  if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/))) return m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+  if ((m = s.match(/^(\d{1,2})[\s\-]+([A-Za-z]{3})[A-Za-z]*[\s\-,]+(\d{4})$/)) && MON[m[2].toLowerCase()]) return m[3] + '-' + String(MON[m[2].toLowerCase()]).padStart(2, '0') + '-' + m[1].padStart(2, '0');
+  return '';
+}
+const findByName = (col, v) => { v = String(v || '').trim().toLowerCase(); if (!v) return null; const h = Object.entries(S[col]).find(([k, x]) => String(x.name || '').trim().toLowerCase() === v); return h ? h[0] : null; };
+async function hrFile(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; inp.value = '';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader. Check the internet connection.'); return; }
+  let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: true }); } catch (e) { toast('Could not read that file. Use the Excel (.xlsx) from the HR Portal.'); return; }
+  let found = null;
+  for (const name of wb.SheetNames) {
+    const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: '' });
+    const hi = rows.findIndex(r => r.some(c => String(c).trim().toLowerCase() === 'emp id') && r.some(c => String(c).trim().toLowerCase() === 'name'));
+    if (hi >= 0) { found = { rows, hi, name }; break; }
+  }
+  if (!found) { toast('No sheet with "Emp ID" and "Name" columns was found. Use HR Portal → Workforce Summary → Download Excel.'); return; }
+  const hd = found.rows[found.hi].map(c => String(c).trim().toLowerCase()); const col = n => hd.indexOf(n);
+  const C = { id: col('emp id'), name: col('name'), desig: col('designation'), dept: col('department'), ent: col('entity'), cat: col('category'), site: hd.findIndex(h => h.startsWith('site')), joined: hd.findIndex(h => h.startsWith('join')) };
+  const out = [], seen = new Set(); let dup = 0;
+  found.rows.slice(found.hi + 1).forEach(r => { const g = k => C[k] >= 0 ? r[C[k]] : ''; const id = String(g('id')).trim(), name = String(g('name')).trim(); if (!id || !name) return;
+    if (seen.has(id.toLowerCase())) { dup++; return; } seen.add(id.toLowerCase());
+    const c = String(g('cat')).toLowerCase(); const cat = /labou?r/.test(c) ? 'labour' : /white/.test(c) ? 'staff' : '';
+    out.push({ id: id.slice(0, 60), name: name.slice(0, 120), desig: String(g('desig')).trim().slice(0, 120), dept: String(g('dept')).trim().slice(0, 120), ent: String(g('ent')).trim().slice(0, 120), cat, site: String(g('site')).trim().slice(0, 120), joined: parseJoined(g('joined')) }); });
+  if (!out.length) { toast('The file has no staff rows.'); return; }
+  const cnt = (arr, key) => { const m = {}; arr.forEach(x => { if (x[key]) m[x[key]] = (m[x[key]] || 0) + 1; }); return m; };
+  const sc = cnt(out, 'site'); const sites = Object.keys(sc).sort().map(v => ({ v, n: sc[v], to: findByName('sites', v) || '+new' }));
+  const tm = {}; out.forEach(x => { if (!x.desig) return; tm[x.desig] = tm[x.desig] || { n: 0, cats: new Set() }; tm[x.desig].n++; tm[x.desig].cats.add(x.cat || 'staff'); });
+  const trades = Object.keys(tm).sort().map(v => { const cat = tm[v].cats.has('labour') ? 'labour' : 'staff'; return { v, n: tm[v].n, cat, to: findByName('trades', v) || '+new', group: guessGroup(v, cat) }; });
+  S.imp = { file: f.name, sheet: found.name, rows: out, sites, trades, unc: 'staff', markLeft: false, dup, noDate: out.filter((x, i) => C.joined >= 0 && !x.joined).length };
+  S.pp.tab = 'import'; draw(); window.scrollTo(0, 0);
+}
+function vImport() {
+  const I = S.imp; if (!I) { S.pp.tab = 'people'; return ''; }
+  const byId = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.empId) byId[p.empId.toLowerCase()] = k; });
+  const wc = I.rows.filter(x => x.cat === 'staff').length, lab = I.rows.filter(x => x.cat === 'labour').length, unc = I.rows.length - wc - lab;
+  const upd = I.rows.filter(x => byId[x.id.toLowerCase()]).length; const ids = new Set(I.rows.map(x => x.id.toLowerCase()));
+  const missing = Object.values(S.people).filter(p => p.cat !== 'supply' && p.status !== 'left' && p.empId && !ids.has(p.empId.toLowerCase())).length;
+  const take = I.rows.length - (I.unc === 'skip' ? unc : 0);
+  const siteSel = (s, i) => `<select class="inp wi" data-c="impSite" data-k="${i}" style="width:auto;min-width:240px">${Object.entries(S.sites).sort(byName).map(([k, x]) => `<option value="${k}" ${s.to === k ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}<option value="+new" ${s.to === '+new' ? 'selected' : ''}>+ Create new site "${esc(s.v)}"</option><option value="" ${s.to === '' ? 'selected' : ''}>Leave blank</option></select>`;
+  const tradeSel = (t, i) => `<select class="inp wi" data-c="impTrade" data-k="${i}" data-f="to" style="width:auto;min-width:220px">${Object.entries(S.trades).sort(byName).map(([k, x]) => `<option value="${k}" ${t.to === k ? 'selected' : ''}>${esc(x.name)} (${esc(x.group)})</option>`).join('')}<option value="+new" ${t.to === '+new' ? 'selected' : ''}>+ Create new trade</option><option value="" ${t.to === '' ? 'selected' : ''}>No trade</option></select>
+    ${t.to === '+new' ? `<select class="inp wi" data-c="impTrade" data-k="${i}" data-f="group" style="width:auto" aria-label="Trade group">${TGROUPS.map(g => `<option ${t.group === g ? 'selected' : ''}>${g}</option>`).join('')}</select>` : ''}`;
+  return `<div class="banner">Reviewing <b>${esc(I.file)}</b> (sheet "${esc(I.sheet)}"). Nothing has been saved yet. Salaries and nationality are not read.</div>
+    <div class="grid g4" style="margin-bottom:16px">${[['People in file', I.rows.length, wc + ' white collar · ' + lab + ' labour'], ['New to PEH', I.rows.length - upd, 'matched by Emp ID'], ['Already in PEH', upd, 'will be updated'], ['In PEH, not in file', missing, 'CKC people only']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')}</div>
+    ${unc ? `<div class="card"><h2>${unc} ${unc === 1 ? 'person is' : 'people are'} "Not classified" in the HR Portal</h2><p class="sub">Choose how to bring them in. Better still, set their category in the HR Portal and export again.</p>
+      <select class="inp wi" data-c="impUnc" style="width:auto"><option value="staff" ${I.unc === 'staff' ? 'selected' : ''}>Import as CKC staff</option><option value="labour" ${I.unc === 'labour' ? 'selected' : ''}>Import as CKC labour</option><option value="skip" ${I.unc === 'skip' ? 'selected' : ''}>Leave them out</option></select></div>` : ''}
+    <div class="card"><h2>Sites in the file</h2><p class="sub">Match each "Site / Project" value to a PEH site, or create it. Spelling differences are fixed here once.</p>
+      ${I.sites.length ? `<div class="tw"><table><thead><tr><th>In the file</th><th class="num">People</th><th>In PEH</th></tr></thead><tbody>${I.sites.map((s, i) => `<tr><td>${esc(s.v)}</td><td class="num">${s.n}</td><td>${siteSel(s, i)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">No site values in the file. People can be given a usual site later.</p>'}</div>
+    <div class="card"><h2>Designations and trades</h2><p class="sub">Each designation becomes a trade, used for the trade-group totals (Civil, MEP, Joinery, Staff, Drivers, Office). Check the group for new trades.</p>
+      ${I.trades.length ? `<div class="tw" style="max-height:520px;overflow:auto"><table><thead><tr><th>Designation in the file</th><th class="num">People</th><th>Trade in PEH</th></tr></thead><tbody>${I.trades.map((t, i) => `<tr><td>${esc(t.v)}<div class="mmeta">${t.cat === 'labour' ? 'Labour' : 'White collar'}</div></td><td class="num">${t.n}</td><td><div class="row" style="gap:6px">${tradeSel(t, i)}</div></td></tr>`).join('')}</tbody></table></div>` : ''}</div>
+    <div class="card"><h2>Confirm</h2>
+      ${missing ? `<label class="chk"><input type="checkbox" class="wi" data-c="impLeft" ${I.markLeft ? 'checked' : ''}>Mark the ${missing} CKC ${missing === 1 ? 'person' : 'people'} in PEH who are not in this file as <b>Left</b></label>` : ''}
+      ${I.dup ? `<p class="note">${I.dup} repeated Emp ID row${I.dup === 1 ? '' : 's'} in the file will be ignored.</p>` : ''}${I.noDate ? `<p class="note">${I.noDate} joining date${I.noDate === 1 ? '' : 's'} could not be read and will be left empty.</p>` : ''}
+      <div class="row mt"><button class="btn fill wi" data-a="doImport">Import ${take} ${take === 1 ? 'person' : 'people'}</button><button class="btn text" data-a="cancelImport">Cancel</button></div></div>`;
+}
+async function doImport() {
+  const I = S.imp; if (!I) return; const upd = {}; const newSite = {}, newTrade = {};
+  I.sites.forEach(s => { if (s.to === '+new') { const ex = findByName('sites', s.v); if (ex) { newSite[s.v] = ex; return; } const k = push(ref(db, 'sites')).key; upd['sites/' + k] = { name: s.v, active: true }; newSite[s.v] = k; } });
+  const tradeByLower = {}; I.trades.forEach(t => { if (t.to === '+new') { const ex = findByName('trades', t.v); if (ex) { newTrade[t.v] = ex; return; } const lk = t.v.toLowerCase(); if (tradeByLower[lk]) { newTrade[t.v] = tradeByLower[lk]; return; } const k = push(ref(db, 'trades')).key; upd['trades/' + k] = { name: t.v, group: t.group }; newTrade[t.v] = k; tradeByLower[lk] = k; } });
+  const siteOf = v => { if (!v) return ''; const s = I.sites.find(x => x.v === v); return !s ? '' : s.to === '+new' ? newSite[v] : s.to; };
+  const tradeOf = v => { if (!v) return ''; const t = I.trades.find(x => x.v === v); return !t ? '' : t.to === '+new' ? newTrade[v] : t.to; };
+  const byId = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.empId) byId[p.empId.toLowerCase()] = k; });
+  let add = 0, chg = 0, left = 0;
+  I.rows.forEach(x => { const cat = x.cat || I.unc; if (cat === 'skip') return;
+    const rec = { name: x.name, empId: x.id, cat, status: 'active' };
+    const f = { dept: x.dept, desig: x.desig, entity: x.ent, joined: x.joined, site: siteOf(x.site), trade: tradeOf(x.desig) }; Object.entries(f).forEach(([k, v]) => { if (v) rec[k] = v; });
+    const ex = byId[x.id.toLowerCase()];
+    if (ex) { const merged = Object.assign({}, S.people[ex], rec); if (merged.cat !== 'supply') delete merged.company; upd['people/' + ex] = merged; chg++; }
+    else { const k = push(ref(db, 'people')).key; upd['people/' + k] = rec; add++; } });
+  if (I.markLeft) { const ids = new Set(I.rows.map(x => x.id.toLowerCase())); Object.entries(S.people).forEach(([k, p]) => { if (p.cat !== 'supply' && p.status !== 'left' && p.empId && !ids.has(p.empId.toLowerCase())) { upd['people/' + k] = Object.assign({}, p, { status: 'left' }); left++; } }); }
+  const ns = Object.keys(upd).filter(k => k.startsWith('sites/')).length, nt = Object.keys(upd).filter(k => k.startsWith('trades/')).length;
+  if (!confirm('Save now?\n\n' + add + ' new people, ' + chg + ' updated' + (left ? ', ' + left + ' marked as Left' : '') + '\n' + ns + ' new sites, ' + nt + ' new trades')) return;
+  try { await update(ref(db), upd); log('Staff imported from HR Portal', add + ' added, ' + chg + ' updated, ' + left + ' left · ' + ns + ' sites, ' + nt + ' trades'); toast('Imported ' + (add + chg) + ' people'); S.imp = null; S.pp.tab = 'people'; draw(); }
+  catch (e) { fail(e); }
+}
+
+
+// ══ Step 2.3: import monthly cost per person from the HR Portal "Total Cost Analysis" Excel ══
+// One actual month only. The file is read in this browser; only the figures below are saved, in the protected rates area.
+S.cimp = null;
+const MON3 = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, sept: 9, oct: 10, nov: 11, dec: 12 };
+const shortEnt = en => /building|ckc/i.test(en || '') ? 'CKC' : /architecture|\bck\b/i.test(en || '') ? 'CK' : '';
+async function costFile(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; inp.value = '';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader. Check the internet connection.'); return; }
+  let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' }); } catch (e) { toast('Could not read that file. Use the Excel (.xlsx) from the HR Portal.'); return; }
+  const sheet = n => window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' });
+  const low = r => r.map(c => String(c).trim().toLowerCase());
+  let emp = null, months = null;
+  for (const n of wb.SheetNames) { const rows = sheet(n);
+    const hi = rows.findIndex(r => { const L = low(r); return L.includes('employee') && L.includes('fixed') && L.includes('variable'); }); if (hi >= 0 && !emp) emp = { rows, hi };
+    const mi = rows.findIndex(r => { const L = low(r); return L[0] === 'month' && L.includes('headcount'); }); if (mi >= 0 && !months) months = rows.slice(mi + 1).map(r => String(r[0] || '').trim()).filter(v => v && !/^total$/i.test(v)); }
+  if (!emp) { toast('No "By employee" sheet with Fixed and Variable columns was found. Use HR Portal → Total Cost Analysis → Download Excel.'); return; }
+  let M = '', problem = '';
+  if (!months || !months.length) problem = 'The file has no "By month" sheet, so its month could not be confirmed. Choose the month below only if you are sure the file covers exactly one month.';
+  else if (months.length > 1) problem = 'This file covers ' + months.length + ' months (' + months[0] + ' to ' + months[months.length - 1] + '), so its amounts are totals, not one month. In the HR Portal choose a single month and download again.';
+  else if (/projection/i.test(months[0])) problem = months[0] + ' is a projection, not an actual month. Only actual months can be imported.';
+  if (months && months.length === 1) { const m = months[0].match(/([A-Za-z]{3,4})[a-z]*\.?\s+(\d{4})/); if (m && MON3[m[1].toLowerCase()]) M = m[2] + '-' + String(MON3[m[1].toLowerCase()]).padStart(2, '0'); }
+  const hd = low(emp.rows[emp.hi]); const col = n => hd.indexOf(n);
+  const C = { name: col('employee'), co: col('company'), dept: col('department'), g: col('gross salary'), gp: col('gpssa (employer)'), gr: col('gratuity accrual'), fl: col('flight allowance'), fx: col('fixed'), vr: col('variable') };
+  const n0 = v => { const x = Number(String(v).replace(/,/g, '')); return isFinite(x) ? Math.round(x * 100) / 100 : null; };
+  const ckc = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply');
+  const rows = [];
+  emp.rows.slice(emp.hi + 1).forEach(r => { let name = String(r[C.name] || '').trim(); if (!name || /^total$/i.test(name)) return; const left = / \(left\)$/i.test(name); name = name.replace(/ \(left\)$/i, '');
+    const co = C.co >= 0 ? String(r[C.co] || '').trim() : ''; const fx = n0(r[C.fx]), vr = n0(r[C.vr]); if (fx == null && vr == null) return;
+    let cands = ckc.filter(([k, p]) => String(p.name || '').trim().toLowerCase() === name.toLowerCase());
+    if (cands.length > 1 && co) { const c2 = cands.filter(([k, p]) => shortEnt(p.entity) === co); if (c2.length) cands = c2; }
+    rows.push({ name, co, left, dept: C.dept >= 0 ? String(r[C.dept] || '').trim() : '', fx: fx || 0, vr: vr || 0, g: C.g >= 0 ? n0(r[C.g]) : null, gp: C.gp >= 0 ? n0(r[C.gp]) : null, gr: C.gr >= 0 ? n0(r[C.gr]) : null, fl: C.fl >= 0 ? n0(r[C.fl]) : null,
+      to: cands.length === 1 ? cands[0][0] : '', why: cands.length > 1 ? 'More than one person with this name' : cands.length ? '' : 'Not found in PEH' }); });
+  if (!rows.length) { toast('The file has no employee rows.'); return; }
+  S.cimp = { file: f.name, rows, M, problem, months: months || [] }; draw(); window.scrollTo(0, 0);
+}
+function vCostImport() {
+  const I = S.cimp; const matched = I.rows.filter(r => r.to).length, open = I.rows.length - matched;
+  const taken = {}; I.rows.forEach(r => { if (r.to) taken[r.to] = (taken[r.to] || 0) + 1; }); const dupl = Object.values(taken).filter(n => n > 1).length;
+  const replace = I.M ? I.rows.filter(r => r.to && S.rates[r.to] && S.rates[r.to][I.M]).length : 0;
+  const ppl = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply').sort(byName);
+  const blocked = !!I.problem && I.months.length !== 0;
+  const tot = I.rows.reduce((t, r) => { if (r.to) { t.fx += r.fx; t.vr += r.vr; } return t; }, { fx: 0, vr: 0 });
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h2>Review cost import · ${esc(I.file)}</h2><button class="btn text" data-a="cancelCostImport">Cancel</button></div>
+    <p class="sub">Nothing has been saved yet. Only Fixed, Variable and their parts (gross, pension, gratuity accrual, flights) are kept, in the protected Costs area.</p>
+    ${I.problem ? `<div class="banner warn">${esc(I.problem)}</div>` : ''}
+    <div class="row" style="gap:12px;align-items:flex-end;margin-bottom:12px"><div class="field" style="margin:0"><label for="ciMonth">Month these figures are for</label><input class="inp" type="month" id="ciMonth" data-c="ciMonth" value="${esc(I.M)}" style="width:auto" ${I.months.length === 1 && I.M ? 'disabled' : ''}></div>
+      <span class="mmeta">${I.months.length === 1 ? 'Taken from the file: ' + esc(I.months[0]) : ''}</span></div>
+    <div class="grid g4" style="margin-bottom:12px">${[['Rows in file', I.rows.length, ''], ['Matched', matched, 'by name and company'], ['Need a choice', open, 'pick the person or skip'], ['Fixed + variable', 'AED ' + r0(tot.fx + tot.vr), 'matched rows only']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v" style="font-size:26px">${v}</div><div class="s">${s}</div></div>`).join('')}</div>
+    ${dupl ? '<div class="banner warn">The same PEH person is chosen for more than one row. Fix that before importing.</div>' : ''}
+    <div class="tw" style="max-height:520px;overflow:auto"><table><thead><tr><th>In the file</th><th>PEH person</th><th class="num">Gross</th><th class="num">Fixed</th><th class="num">Variable</th></tr></thead><tbody>
+    ${I.rows.map((r, i) => `<tr><td><b style="font-weight:500">${esc(r.name)}</b>${r.left ? ' <span class="mmeta">(left)</span>' : ''}<div class="mmeta">${esc(r.co)}${r.dept ? ' · ' + esc(r.dept) : ''}</div></td>
+      <td><select class="inp" data-c="ciPick" data-k="${i}" style="width:auto;min-width:220px"><option value="">— skip this row —</option>${ppl.map(([k, p]) => `<option value="${k}" ${r.to === k ? 'selected' : ''}>${esc(p.name)}${p.empId ? ' · ' + esc(p.empId) : ''}${p.entity ? ' · ' + esc(shortEnt(p.entity)) : ''}</option>`).join('')}</select>${r.why && !r.to ? `<div class="mmeta" style="color:var(--warn)">${r.why}</div>` : ''}</td>
+      <td class="num">${r.g == null ? '—' : r0(r.g)}</td><td class="num">${r0(r.fx)}</td><td class="num">${r0(r.vr)}</td></tr>`).join('')}</tbody></table></div>
+    ${replace ? `<p class="note">${replace} people already have figures for ${esc(I.M)}; they will be replaced.</p>` : ''}
+    <div class="row mt"><button class="btn fill wi" data-a="doCostImport" ${blocked || dupl || !I.M || !matched ? 'disabled' : ''}>Save ${matched} monthly cost record${matched === 1 ? '' : 's'}${I.M ? ' for ' + esc(I.M) : ''}</button></div></div>`;
+}
+async function doCostImport() {
+  const I = S.cimp; if (!I || !I.M || !/^\d{4}-\d{2}$/.test(I.M)) { toast('Choose the month first.'); return; }
+  const upd = {}; let n = 0; I.rows.forEach(r => { if (!r.to) return; const rec = { fx: r.fx, vr: r.vr }; ['g', 'gp', 'gr', 'fl'].forEach(k => { if (r[k] != null && r[k] >= 0) rec[k] = r[k]; }); upd['rates/' + r.to + '/' + I.M] = rec; n++; });
+  if (!n) return; if (!confirm('Save ' + n + ' monthly cost records for ' + I.M + '?')) return;
+  try { await update(ref(db), upd); log('Monthly costs imported from HR Portal', I.M + ' · ' + n + ' people'); toast('Saved ' + n + ' records for ' + I.M); S.cr.month = I.M; S.cimp = null; draw(); } catch (e) { fail(e); }
+}
+
 // ── events
 const ACT = {
   signin: async () => {
@@ -1302,6 +1458,8 @@ const ACT = {
   regDrop: b => { delete S.reg.draft.w[b.dataset.v]; S.reg.edited = true; draw(); },
   addWorker: () => { const k = $('#addW').value; if (!k) return; S.reg.draft.w[k] = { s: 'P', h: stdDay(S.reg.date), ot: 0 }; S.reg.edited = true; draw(); },
   addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
+  doCostImport, cancelCostImport: () => { S.cimp = null; draw(); },
+  doImport, cancelImport: () => { S.imp = null; S.pp.tab = 'people'; draw(); },
   runReport, repQuick: b => repQuick(b.dataset.v), repPdf: reportPdf, mpPdf: manpowerPdf, runDash, dashQuick: b => dashQuick(b.dataset.v), dashPdf,
   repCsv: () => { const o = S.rep, R = o.res; if (!R) return; const cost = seesCost(); const lab = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
     const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days', 'Subcontract man-days'].concat(cost ? ['CKC + supply cost (AED)', 'Subcontract cost (AED)', 'Total cost (AED)', 'AED per man-hour', 'Days without rate'] : []);
@@ -1331,6 +1489,12 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
   else if (c === 'dashChart') { S.dash.chart = t.value; drawDashCharts(); }
   else if (c === 'ppQ') { S.pp.q = t.value; draw(); } else if (c === 'ppCat') { S.pp.cat = t.value; draw(); } else if (c === 'ppSite') { S.pp.site = t.value; draw(); }
   else if (c === 'importPeople') importPeople(t); else if (c === 'importRates') importRates(t);
+  else if (c === 'hrFile') hrFile(t);
+  else if (c === 'costFile') costFile(t);
+  else if (c === 'ciMonth') { S.cimp.M = t.value; draw(); } else if (c === 'ciPick') { S.cimp.rows[+t.dataset.k].to = t.value; draw(); }
+  else if (c === 'impSite') { S.imp.sites[+t.dataset.k].to = t.value; draw(); }
+  else if (c === 'impTrade') { S.imp.trades[+t.dataset.k][t.dataset.f] = t.value; draw(); }
+  else if (c === 'impUnc') { S.imp.unc = t.value; draw(); } else if (c === 'impLeft') { S.imp.markLeft = t.checked; draw(); }
   else if (c === 'crMonth') { S.cr.month = t.value || S.cr.month; draw(); } });
 document.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !$('#gate').hidden && (ev.target.id === 'pw' || ev.target.id === 'em')) ACT.signin(); if (ev.key === 'Escape' && $('#modal').innerHTML) closeModal(); });
 </script>
