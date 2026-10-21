@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -1352,8 +1352,10 @@ async function doImport() {
     if (ex) { const merged = Object.assign({}, S.people[ex], rec); if (merged.cat !== 'supply') delete merged.company; upd['people/' + ex] = merged; chg++; }
     else { const k = push(ref(db, 'people')).key; upd['people/' + k] = rec; add++; } });
   if (I.markLeft) { const ids = new Set(I.rows.map(x => x.id.toLowerCase())); Object.entries(S.people).forEach(([k, p]) => { if (p.cat !== 'supply' && p.status !== 'left' && p.empId && !ids.has(p.empId.toLowerCase())) { upd['people/' + k] = Object.assign({}, p, { status: 'left' }); left++; } }); }
+  const newDepts = [...new Set(I.rows.filter(x => (x.cat || I.unc) !== 'skip' && x.dept).map(x => x.dept.trim()))].filter(n => !findByName('depts', n));
+  newDepts.forEach(n => upd['depts/' + push(ref(db, 'depts')).key] = { name: n.slice(0, 120) });
   const ns = Object.keys(upd).filter(k => k.startsWith('sites/')).length, nt = Object.keys(upd).filter(k => k.startsWith('trades/')).length;
-  if (!confirm('Save now?\n\n' + add + ' new people, ' + chg + ' updated' + (left ? ', ' + left + ' marked as Left' : '') + '\n' + ns + ' new sites, ' + nt + ' new trades')) return;
+  if (!confirm('Save now?\n\n' + add + ' new people, ' + chg + ' updated' + (left ? ', ' + left + ' marked as Left' : '') + '\n' + ns + ' new sites, ' + nt + ' new trades, ' + newDepts.length + ' new departments')) return;
   try { await update(ref(db), upd); log('Staff imported from HR Portal', add + ' added, ' + chg + ' updated, ' + left + ' left · ' + ns + ' sites, ' + nt + ' trades'); toast('Imported ' + (add + chg) + ' people'); S.imp = null; S.pp.tab = 'people'; draw(); }
   catch (e) { fail(e); }
 }
@@ -1537,8 +1539,18 @@ const roleOpts = (sel, blank) => (blank ? `<option value="">${esc(blank)}</optio
 const deptOpts = sel => Object.entries(S.depts).sort(byName).map(([k, d]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(d.name)}</option>`).join('');
 const autoChip = a => a ? `<span class="chip pri" title="PEH can calculate this from its own records">${esc(AUTO[a] || 'Automatic')}</span>` : '';
 
+// ── Departments follow the staff list automatically (super users only; runs at most once per screen visit)
+let deptSyncBusy = false;
+function syncDepts() {
+  if (!canW() || deptSyncBusy) return;
+  const names = [...new Set(Object.values(S.people).filter(p => p.cat !== 'supply' && p.dept).map(p => p.dept.trim()))].filter(n => n && !findByName('depts', n));
+  if (!names.length) return; deptSyncBusy = true;
+  const upd = {}; names.forEach(n => upd['depts/' + push(ref(db, 'depts')).key] = { name: n.slice(0, 120) });
+  update(ref(db), upd).then(() => { log('Departments added from staff list', names.join(', ')); toast(names.length + ' department' + (names.length === 1 ? '' : 's') + ' added from the staff list'); }).catch(fail).finally(() => { deptSyncBusy = false; });
+}
 // ── Role library
 function vRoles() {
+  setTimeout(syncDepts, 0);
   if (S.rl.sel && S.roles[S.rl.sel]) return vRoleDetail(S.rl.sel);
   S.rl.sel = '';
   const ed = canW(); const deptsInUse = [...new Set(Object.values(S.people).filter(p => p.cat !== 'supply' && p.dept).map(p => p.dept.trim()))];
@@ -1550,7 +1562,7 @@ function vRoles() {
       <div class="row" style="gap:6px;margin-top:10px">${chip(n ? 'good' : '', n + (n === 1 ? ' person' : ' people'))}${chip(kr.length ? 'pri' : 'warn', kr.length + ' KRA' + (kr.length === 1 ? '' : 's'))}${lk ? chip('', lk + ' link' + (lk === 1 ? '' : 's')) : ''}</div></button>`; };
   return ph('Role library', 'What each role is for, what it is responsible for, what it decides and how its results are measured. Written once, used for everyone in the role.',
       ed ? `<div class="row no-print"><button class="btn tonal wi" data-a="rFromTpl">Add from a template</button><button class="btn out wi" data-a="rEdit" data-v="">Add blank role</button></div>` : '') +
-    (ed && missingDepts.length ? `<div class="banner"><span>${missingDepts.length} department${missingDepts.length === 1 ? '' : 's'} in the staff list ${missingDepts.length === 1 ? 'is' : 'are'} not set up yet (${esc(missingDepts.slice(0, 6).join(', '))}${missingDepts.length > 6 ? '…' : ''}).</span><button class="btn tonal sm wi" data-a="mkDepts" style="margin-left:auto">Create them</button></div>` : '') +
+    (!ed && missingDepts.length ? `<div class="banner">${missingDepts.length} department${missingDepts.length === 1 ? '' : 's'} from the staff list will appear once a super user opens this page.</div>` : '') +
     `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search roles" data-c="rlQ" value="${esc(S.rl.q)}" style="flex:1;min-width:200px">
       <div class="people" style="padding:0;margin:0"><button data-a="rDept" data-v="" aria-pressed="${!S.rl.dept}">All · ${Object.keys(S.roles).length}</button>${Object.entries(S.depts).sort(byName).filter(([k]) => cnt(k)).map(([k, d]) => `<button data-a="rDept" data-v="${k}" aria-pressed="${S.rl.dept === k}">${esc(d.name)} · ${cnt(k)}</button>`).join('')}</div></div></div>` +
     (list.length ? `<div class="rgrid">${list.map(card).join('')}</div>` : `<div class="card"><div class="empty"><b>${Object.keys(S.roles).length ? 'No roles match' : 'No roles yet'}</b>${ed && !Object.keys(S.roles).length ? 'Start with "Add from a template". Ready-made roles cover projects, design, commercial, procurement, MEP, HSE, finance and HR. Edit them to fit CK and CKC.' : ''}</div></div>`) +
@@ -1643,6 +1655,7 @@ function kpiFromLib(k, i, n) {
 
 // ── Who does what (assignments)
 function vAssign() {
+  setTimeout(syncDepts, 0);
   const ed = canW(); const q = S.as.q.toLowerCase();
   const ppl = Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && (!S.as.cat || p.cat === S.as.cat) && (!S.as.dept || String(p.dept || '').trim().toLowerCase() === String(deptName(S.as.dept)).toLowerCase()) && (!q || (p.name + ' ' + (p.desig || '') + ' ' + (p.empId || '')).toLowerCase().includes(q))).sort(byName);
   const desigs = {}; ppl.forEach(([k, p]) => { if (p.desig) desigs[p.desig] = (desigs[p.desig] || 0) + 1; });
