@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.5.2. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.5.4. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -1324,8 +1324,8 @@ async function hrFile(inp) {
   if (!found) { toast('No sheet with "Emp ID" and "Name" columns was found. Use HR Portal → Workforce Summary → Download Excel.'); return; }
   const hd = found.rows[found.hi].map(c => String(c).trim().toLowerCase()); const col = n => hd.indexOf(n);
   const C = { id: col('emp id'), name: col('name'), desig: col('designation'), dept: col('department'), ent: col('entity'), cat: col('category'), site: hd.findIndex(h => h.startsWith('site')), joined: hd.findIndex(h => h.startsWith('join')) };
-  const out = [], seen = new Set(); let dup = 0;
-  found.rows.slice(found.hi + 1).forEach(r => { const g = k => C[k] >= 0 ? r[C[k]] : ''; const id = String(g('id')).trim(), name = String(g('name')).trim(); if (!id || !name) return;
+  const out = [], seen = new Set(), noId = []; let dup = 0;
+  found.rows.slice(found.hi + 1).forEach(r => { const g = k => C[k] >= 0 ? r[C[k]] : ''; const id = String(g('id')).trim(), name = String(g('name')).trim(); if (name && !id && !/^total/i.test(name)) noId.push(name + (g('desig') ? ' (' + String(g('desig')).trim() + ')' : '')); if (!id || !name) return;
     if (seen.has(id.toLowerCase())) { dup++; return; } seen.add(id.toLowerCase());
     const c = String(g('cat')).toLowerCase(); const cat = /labou?r/.test(c) ? 'labour' : /white/.test(c) ? 'staff' : '';
     out.push({ id: id.slice(0, 60), name: name.slice(0, 120), desig: String(g('desig')).trim().slice(0, 120), dept: String(g('dept')).trim().slice(0, 120), ent: String(g('ent')).trim().slice(0, 120), cat, site: String(g('site')).trim().slice(0, 120), joined: parseJoined(g('joined')) }); });
@@ -1334,7 +1334,7 @@ async function hrFile(inp) {
   const sc = cnt(out, 'site'); const sites = Object.keys(sc).sort().map(v => ({ v, n: sc[v], to: findByName('sites', v) || '+new' }));
   const tm = {}; out.forEach(x => { if (!x.desig) return; tm[x.desig] = tm[x.desig] || { n: 0, cats: new Set() }; tm[x.desig].n++; tm[x.desig].cats.add(x.cat || 'staff'); });
   const trades = Object.keys(tm).sort().map(v => { const cat = tm[v].cats.has('labour') ? 'labour' : 'staff'; return { v, n: tm[v].n, cat, to: findByName('trades', v) || '+new', group: guessGroup(v, cat) }; });
-  S.imp = { file: f.name, sheet: found.name, rows: out, sites, trades, unc: 'staff', markLeft: false, dup, noDate: out.filter((x, i) => C.joined >= 0 && !x.joined).length };
+  S.imp = { file: f.name, sheet: found.name, rows: out, sites, trades, unc: 'staff', markLeft: false, dup, noId, noDate: out.filter((x, i) => C.joined >= 0 && !x.joined).length };
   S.pp.tab = 'import'; draw(); window.scrollTo(0, 0);
 }
 function vImport() {
@@ -1349,6 +1349,7 @@ function vImport() {
     ${t.to === '+new' ? `<select class="inp wi" data-c="impTrade" data-k="${i}" data-f="group" style="width:auto" aria-label="Trade group">${TGROUPS.map(g => `<option ${t.group === g ? 'selected' : ''}>${g}</option>`).join('')}</select>` : ''}`;
   return `<div class="banner">Reviewing <b>${esc(I.file)}</b> (sheet "${esc(I.sheet)}"). Nothing has been saved yet. Salaries and nationality are not read.</div>
     <div class="grid g4" style="margin-bottom:16px">${[['People in file', I.rows.length, wc + ' white collar · ' + lab + ' labour'], ['New to PEH', I.rows.length - upd, 'matched by Emp ID'], ['Already in PEH', upd, 'will be updated'], ['In PEH, not in file', missing, 'CKC people only']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')}</div>
+    ${(I.noId || []).length ? `<div class="banner warn" style="align-items:flex-start"><div><b style="font-weight:500">${I.noId.length} ${I.noId.length === 1 ? 'person has' : 'people have'} no Emp ID in the HR Portal and cannot be imported:</b> ${esc(I.noId.slice(0, 12).join(', '))}${I.noId.length > 12 ? ' and ' + (I.noId.length - 12) + ' more' : ''}. PEH matches staff and salaries by Emp ID. Give ${I.noId.length === 1 ? 'this person' : 'them'} an Emp ID in the HR Portal (Employee Records → Edit → Employee ID), download the Workforce Summary again and import it.</div></div>` : ''}
     ${unc ? `<div class="card"><h2>${unc} ${unc === 1 ? 'person is' : 'people are'} "Not classified" in the HR Portal</h2><p class="sub">Choose how to bring them in. Better still, set their category in the HR Portal and export again.</p>
       <select class="inp wi" data-c="impUnc" style="width:auto"><option value="staff" ${I.unc === 'staff' ? 'selected' : ''}>Import as CKC staff</option><option value="labour" ${I.unc === 'labour' ? 'selected' : ''}>Import as CKC labour</option><option value="skip" ${I.unc === 'skip' ? 'selected' : ''}>Leave them out</option></select></div>` : ''}
     <div class="card"><h2>Sites in the file</h2><p class="sub">Match each "Site / Project" value to a PEH site, or create it. Spelling differences are fixed here once.</p>
@@ -1613,41 +1614,61 @@ const TPL_MATCH = [[/hr director|hr manager|head of hr|human resources? manager/
   [/accountant|accounts/, 'acc'], [/\bhr\b|human resources/, 'hr'], [/time ?keeper/, 'tk']];
 const tplFor = d => { const x = String(d || '').toLowerCase(); const m = TPL_MATCH.find(([rx]) => rx.test(x)); return m ? m[1] : ''; };
 S.dz = { open: false, lab: false, rows: null };
+const dKey = d => String(d || '').trim().toLowerCase();
+function roleForDesig(d) { const k = dKey(d); if (!k) return null; const byName = findByName('roles', String(d).trim()); if (byName) return byName;
+  const hit = Object.entries(S.roles || {}).find(([rk, r]) => arr(r.desigs).some(x => dKey(x) === k)); return hit ? hit[0] : null; }
+// Existing role a designation should probably join: one made from the same template
+function existingRoleFor(d) { const t = tplFor(d); if (!t) return ''; const hit = Object.entries(S.roles || {}).find(([rk, r]) => r.tpl === t); return hit ? hit[0] : ''; }
+// Give a main role to anyone whose designation is linked to a role and who has none yet (new joiners after an import)
+let roleSyncBusy = false;
+function syncRoleAssign() {
+  if (!canW() || roleSyncBusy || !Object.keys(S.roles || {}).length) return;
+  const upd = {}; let n = 0;
+  Object.entries(S.people).forEach(([k, p]) => { if (p.status === 'left' || p.cat === 'supply' || !p.desig) return; const rid = roleForDesig(p.desig); if (!rid) return;
+    const a = assignOf(k); if (Object.values(a).some(x => x.lvl === 'main')) return; const subs = Object.values(a).reduce((t, x) => t + Number(x.pct || 0), 0); upd['rassign/' + k + '/' + rid] = { lvl: 'main', pct: Math.max(0, 100 - subs) }; n++; });
+  if (!n) return; roleSyncBusy = true;
+  update(ref(db), upd).then(() => { log('Main roles assigned automatically', n + ' people (designation linked to a role)'); toast(n + (n === 1 ? ' person' : ' people') + ' given their main role'); }).catch(fail).finally(() => { roleSyncBusy = false; });
+}
 function desigRows(lab) { const m = {};
   Object.values(S.people).forEach(p => { if (p.status === 'left' || p.cat === 'supply' || !p.desig) return; if (!lab && p.cat === 'labour') return; const d = p.desig.trim(); m[d] = m[d] || { n: 0, depts: {} }; m[d].n++; if (p.dept) m[d].depts[p.dept.trim()] = (m[d].depts[p.dept.trim()] || 0) + 1; });
-  return Object.entries(m).filter(([d]) => !findByName('roles', d)).map(([d, x]) => { const top = Object.entries(x.depts).sort((a, b) => b[1] - a[1])[0]; return { d, n: x.n, dept: top ? (findByName('depts', top[0]) || '') : '', tpl: tplFor(d), inc: true }; }).sort((a, b) => b.n - a.n || a.d.localeCompare(b.d)); }
-function unassignedMatching() { return Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && p.cat !== 'supply' && p.desig && findByName('roles', p.desig.trim()) && !Object.values(assignOf(k)).some(a => a.lvl === 'main')).length; }
+  return Object.entries(m).filter(([d]) => !roleForDesig(d)).map(([d, x]) => { const top = Object.entries(x.depts).sort((a, b) => b[1] - a[1])[0]; const ex = existingRoleFor(d); return { d, n: x.n, dept: top ? (findByName('depts', top[0]) || '') : '', tpl: ex ? 'role:' + ex : tplFor(d), inc: true }; }).sort((a, b) => b.n - a.n || a.d.localeCompare(b.d)); }
+function unassignedMatching() { return Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && p.cat !== 'supply' && p.desig && roleForDesig(p.desig) && !Object.values(assignOf(k)).some(a => a.lvl === 'main')).length; }
 function vDesigPanel() {
   if (!canW()) return ''; const pending = desigRows(S.dz.lab).length, unas = unassignedMatching();
   if (!S.dz.open) return (pending || unas) ? `<div class="banner"><span>${pending ? `<b>${pending}</b> designation${pending === 1 ? '' : 's'} in the staff list ${pending === 1 ? 'has' : 'have'} no role yet` : ''}${pending && unas ? ' · ' : ''}${unas ? `<b>${unas}</b> ${unas === 1 ? 'person has' : 'people have'} a matching role but no main role` : ''}.</span><button class="btn tonal sm wi" data-a="dzOpen" style="margin-left:auto">Review and create</button></div>` : '';
   if (!S.dz.rows) S.dz.rows = desigRows(S.dz.lab);
-  const R = S.dz.rows, inc = R.filter(r => r.inc), withTpl = inc.filter(r => r.tpl).length, ppl = inc.reduce((a, r) => a + r.n, 0), noDept = inc.filter(r => !r.dept).length;
-  const tplOpts = v => `<option value="">Blank role (department head writes it)</option>` + TPL_ROLES.map(t => `<option value="${t.id}" ${v === t.id ? 'selected' : ''}>Template: ${esc(t.name)}</option>`).join('');
-  return `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Create roles from designations</h2><p class="sub" style="margin:0">One role per designation, named as in the HR Portal. Where a template fits it is filled in for you; edit anything afterwards.</p></div><button class="btn text" data-a="dzClose">Close</button></div>
+  const R = S.dz.rows, inc = R.filter(r => r.inc), lnk = inc.filter(r => String(r.tpl || '').startsWith('role:')).length, withTpl = inc.filter(r => r.tpl && !String(r.tpl).startsWith('role:')).length, ppl = inc.reduce((a, r) => a + r.n, 0), noDept = inc.filter(r => !r.dept && !String(r.tpl || '').startsWith('role:')).length;
+  const tplOpts = v => (Object.keys(S.roles || {}).length ? `<optgroup label="Link to a role that already exists">${rolesSorted().map(([rk, r]) => `<option value="role:${rk}" ${v === 'role:' + rk ? 'selected' : ''}>Existing: ${esc(r.name)}</option>`).join('')}</optgroup>` : '') + `<optgroup label="Create a new role"><option value="" ${!v ? 'selected' : ''}>Blank role (department head writes it)</option>` + TPL_ROLES.map(t => `<option value="${t.id}" ${v === t.id ? 'selected' : ''}>Template: ${esc(t.name)}</option>`).join('') + '</optgroup>';
+  return `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Create roles from designations</h2><p class="sub" style="margin:0">Link each designation to a role that already exists, or create a new role for it (from a template where one fits). Links are remembered: staff imported later with the same designation get their main role automatically.</p></div><button class="btn text" data-a="dzClose">Close</button></div>
     <label class="chk mt"><input type="checkbox" data-c="dzLab" ${S.dz.lab ? 'checked' : ''}>Include labour designations (masons, helpers and so on). Usually not needed: their trades already group them.</label>
     ${R.length ? `<div class="tw mt" style="max-height:520px;overflow:auto"><table><thead><tr><th></th><th>Designation</th><th class="num">People</th><th>Department</th><th>Start from</th></tr></thead><tbody>${R.map((r, i) => `<tr><td><input type="checkbox" data-c="dzInc" data-k="${i}" ${r.inc ? 'checked' : ''} aria-label="Include ${esc(r.d)}"></td><td><b style="font-weight:500">${esc(r.d)}</b></td><td class="num">${r.n}</td>
-      <td><select class="inp" data-c="dzDept" data-k="${i}" style="width:auto;min-width:160px"><option value="">— choose —</option>${deptOpts(r.dept)}</select></td><td><select class="inp" data-c="dzTpl" data-k="${i}" style="width:auto;min-width:240px">${tplOpts(r.tpl)}</select></td></tr>`).join('')}</tbody></table></div>` : '<p class="note mt">Every designation already has a role.</p>'}
-    ${noDept ? `<div class="banner warn mt">${noDept} selected designation${noDept === 1 ? ' has' : 's have'} no department. Choose one, or untick it.</div>` : ''}
-    <div class="row mt"><button class="btn fill wi" data-a="dzCreate" ${noDept || (!inc.length && !unas) ? 'disabled' : ''}>Create ${inc.length} role${inc.length === 1 ? '' : 's'} (${withTpl} from templates) and assign main roles</button><span class="mmeta">About ${ppl + unas} people will get their main role. People who already have one keep it.</span></div></div>`;
+      <td>${String(r.tpl || '').startsWith('role:') && S.roles[r.tpl.slice(5)] ? `<span class="mmeta">${esc(deptName(S.roles[r.tpl.slice(5)].dept))} (from the role)</span>` : `<select class="inp" data-c="dzDept" data-k="${i}" style="width:auto;min-width:160px"><option value="">— choose —</option>${deptOpts(r.dept)}</select>`}</td><td><select class="inp" data-c="dzTpl" data-k="${i}" style="width:auto;min-width:240px">${tplOpts(r.tpl)}</select></td></tr>`).join('')}</tbody></table></div>` : '<p class="note mt">Every designation already has a role.</p>'}
+    ${noDept ? `<div class="banner warn mt">${noDept} new role${noDept === 1 ? ' has' : 's have'} no department. Choose one, link the designation to an existing role, or untick it.</div>` : ''}
+    <div class="row mt"><button class="btn fill wi" data-a="dzCreate" ${noDept || (!inc.length && !unas) ? 'disabled' : ''}>${[inc.length - lnk ? 'Create ' + (inc.length - lnk) + ' new role' + (inc.length - lnk === 1 ? '' : 's') : '', lnk ? (inc.length - lnk ? 'link ' : 'Link ') + lnk + ' to existing roles' : ''].filter(Boolean).join(', ') || 'Assign'} and assign main roles</button><span class="mmeta">About ${ppl + unas} people will get their main role. People who already have one keep it.</span></div></div>`;
 }
 async function dzCreate() {
-  const inc = (S.dz.rows || []).filter(r => r.inc); if (inc.some(r => !r.dept)) { toast('Choose a department for every selected designation.'); return; }
-  const upd = {}, made = {};
-  inc.forEach(r => { const id = push(ref(db, 'roles')).key; const t = TPL_ROLES.find(x => x.id === r.tpl);
-    const rec = { name: r.d.slice(0, 120), dept: r.dept, purpose: t ? t.purpose : '', resp: t ? t.resp : [], decide: t ? t.decide : [], approve: t ? t.approve : [] };
+  const inc = (S.dz.rows || []).filter(r => r.inc); const isLink = r => String(r.tpl || '').startsWith('role:');
+  if (inc.some(r => !isLink(r) && !r.dept)) { toast('Choose a department for every new role.'); return; }
+  const upd = {}, made = {}, linkLists = {}; let nNew = 0, nLink = 0;
+  inc.forEach(r => {
+    if (isLink(r)) { const rid = r.tpl.slice(5); if (!S.roles[rid]) return; linkLists[rid] = linkLists[rid] || arr(S.roles[rid].desigs).slice(); if (!linkLists[rid].some(x => dKey(x) === dKey(r.d))) linkLists[rid].push(r.d.slice(0, 120)); made[dKey(r.d)] = rid; nLink++; return; }
+    const id = push(ref(db, 'roles')).key; const t = TPL_ROLES.find(x => x.id === r.tpl);
+    const rec = { name: r.d.slice(0, 120), dept: r.dept, purpose: t ? t.purpose : '', resp: t ? t.resp : [], decide: t ? t.decide : [], approve: t ? t.approve : [], desigs: [r.d.slice(0, 120)] };
     if (t) { rec.tpl = t.id; rec.kras = t.kras.map(x => ({ n: x.n, w: x.w, kpis: x.kpis.map(p => Object.assign({}, p)) })); }
-    upd['roles/' + id] = rec; made[r.d.toLowerCase()] = id; });
-  let n = 0; Object.entries(S.people).forEach(([k, p]) => { if (p.status === 'left' || p.cat === 'supply' || !p.desig) return; const d = p.desig.trim().toLowerCase(); const rid = made[d] || findByName('roles', p.desig.trim()); if (!rid) return;
+    upd['roles/' + id] = rec; made[dKey(r.d)] = id; nNew++; });
+  Object.entries(linkLists).forEach(([rid, list]) => { upd['roles/' + rid + '/desigs'] = list; });
+  let n = 0; Object.entries(S.people).forEach(([k, p]) => { if (p.status === 'left' || p.cat === 'supply' || !p.desig) return; const d = dKey(p.desig); const rid = made[d] || roleForDesig(p.desig); if (!rid) return;
     if (!S.dz.lab && p.cat === 'labour' && made[d]) return;
-    if (Object.values(assignOf(k)).some(a => a.lvl === 'main')) return; const subs = Object.values(assignOf(k)).reduce((s, a) => s + Number(a.pct || 0), 0); upd['rassign/' + k + '/' + rid] = { lvl: 'main', pct: Math.max(0, 100 - subs) }; n++; });
-  if (!confirm('Create ' + inc.length + ' roles and give ' + n + ' people their main role?')) return;
-  try { await update(ref(db), upd); log('Roles created from designations', inc.length + ' roles, ' + n + ' people assigned'); toast(inc.length + ' roles created, ' + n + ' people assigned'); S.dz = { open: false, lab: S.dz.lab, rows: null }; } catch (e) { fail(e); }
+    if (Object.values(assignOf(k)).some(a => a.lvl === 'main')) return; const subs = Object.values(assignOf(k)).reduce((t, a) => t + Number(a.pct || 0), 0); upd['rassign/' + k + '/' + rid] = { lvl: 'main', pct: Math.max(0, 100 - subs) }; n++; });
+  const what = [nNew ? 'create ' + nNew + ' new role' + (nNew === 1 ? '' : 's') : '', nLink ? 'link ' + nLink + ' designation' + (nLink === 1 ? '' : 's') + ' to existing roles' : ''].filter(Boolean).join(' and ');
+  if (!confirm((what ? what.charAt(0).toUpperCase() + what.slice(1) : 'Update roles') + ', and give ' + n + ' people their main role?')) return;
+  try { await update(ref(db), upd); log('Roles from designations', nNew + ' new, ' + nLink + ' linked, ' + n + ' people assigned'); toast((nNew ? nNew + ' roles created, ' : '') + (nLink ? nLink + ' linked, ' : '') + n + ' people assigned'); S.dz = { open: false, lab: S.dz.lab, rows: null }; } catch (e) { fail(e); }
 }
 // People who can be a head: all active CK / CKC people (white collar first), so a category mismatch never hides someone
 function headCandidates() { return Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort((a, b) => (a[1].cat !== 'staff') - (b[1].cat !== 'staff') || String(a[1].name || '').localeCompare(String(b[1].name || ''))); }
 // ── Role library
 function vRoles() {
-  setTimeout(syncDepts, 0);
+  setTimeout(syncDepts, 0); setTimeout(syncRoleAssign, 0);
   if (S.rl.sel && S.roles[S.rl.sel]) return vRoleDetail(S.rl.sel);
   S.rl.sel = '';
   const ed = canW(); const deptsInUse = [...new Set(Object.values(S.people).filter(p => p.cat !== 'supply' && p.dept).map(p => p.dept.trim()))];
@@ -1677,7 +1698,7 @@ function vRoleDetail(k) {
   const ul = (a, empty) => { const L = lines(a); return L.length ? `<ul class="bul">${L.map(t => `<li>${esc(t)}</li>`).join('')}</ul>` : `<span style="color:var(--faint)">${empty}</span>`; };
   const tabs = [['resp', 'Responsibilities and authority'], ['kra', 'KRAs and KPIs'], ['links', 'Department links'], ['ppl', 'People in this role']];
   let body = '';
-  if (S.rl.tab === 'resp') body = `<p style="font:400 17px/1.5 var(--f);margin:0 0 16px">${esc(r.purpose || 'No purpose written yet.')}</p><div class="cols3"><div><h3>Responsible for</h3>${ul(r.resp, 'Not written yet')}</div><div><h3>Decides alone</h3>${ul(r.decide, 'Not written yet')}</div><div><h3>Needs approval from</h3>${ul(r.approve, 'Not written yet')}</div></div>${ed ? `<div class="row mt"><button class="btn tonal sm wi" data-a="rEdit" data-v="${k}">Edit</button></div>` : ''}`;
+  if (S.rl.tab === 'resp') body = `<p style="font:400 17px/1.5 var(--f);margin:0 0 16px">${esc(r.purpose || 'No purpose written yet.')}</p>${arr(r.desigs).length ? `<p class="mmeta" style="margin:-6px 0 14px">Designations linked to this role (staff with these get it as their main role): ${arr(r.desigs).map(d => `<span class="chip plain" style="margin:2px 4px 2px 0">${esc(d)}</span>`).join('')}</p>` : ''}<div class="cols3"><div><h3>Responsible for</h3>${ul(r.resp, 'Not written yet')}</div><div><h3>Decides alone</h3>${ul(r.decide, 'Not written yet')}</div><div><h3>Needs approval from</h3>${ul(r.approve, 'Not written yet')}</div></div>${ed ? `<div class="row mt"><button class="btn tonal sm wi" data-a="rEdit" data-v="${k}">Edit</button></div>` : ''}`;
   else if (S.rl.tab === 'kra') body = `<div class="row" style="justify-content:space-between;margin-bottom:12px"><div>${chip(wsum === 100 ? 'good' : 'warn', 'Weights total ' + wsum + '%' + (wsum === 100 ? '' : ' · should be 100%'))}</div>${ed ? `<div class="row"><button class="btn out sm wi" data-a="kraEdit" data-v="${k}" data-i="">Add KRA</button></div>` : ''}</div>` +
     (kr.length ? kr.map((x, i) => `<div class="kra"><div class="row" style="justify-content:space-between"><div><b style="font:500 15px var(--f)">${esc(x.n)}</b> <span class="mmeta">· weight ${Number(x.w || 0)}%</span></div>${ed ? `<div class="row" style="gap:4px"><button class="btn text sm wi" data-a="kpiEdit" data-v="${k}" data-i="${i}" data-j="">Add KPI</button><button class="btn text sm wi" data-a="kpiLibPick" data-v="${k}" data-i="${i}">From library</button><button class="btn text sm wi" data-a="kraEdit" data-v="${k}" data-i="${i}">Edit</button></div>` : ''}</div>
       ${x.kpis.length ? `<div class="tw"><table><thead><tr><th>KPI (a result, not an activity)</th><th>Unit</th><th>Better</th><th class="num">Target</th><th>How often</th><th>Data source</th><th>Money link</th><th></th></tr></thead><tbody>${x.kpis.map((p, j) => `<tr><td><b style="font-weight:500">${esc(p.n)}</b>${p.auto ? '<div style="margin-top:4px">' + autoChip(p.auto) + '</div>' : ''}</td><td>${esc(p.u || '')}</td><td>${p.low ? 'Lower' : 'Higher'}</td><td class="num">${p.tgt == null || p.tgt === '' ? '<span class="mmeta">to agree</span>' : fmtN(p.tgt)}</td><td>${esc(p.freq || '')}</td><td>${esc(p.src || '')}</td><td>${esc(p.ft || '')}</td><td>${ed ? `<button class="icon-btn wi" data-a="kpiEdit" data-v="${k}" data-i="${i}" data-j="${j}" aria-label="Edit KPI">${svg('edit')}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<p class="note">No KPIs yet.</p>'}</div>`).join('') : '<div class="empty"><b>No KRAs yet</b>A KRA is an area of results (for example "Delivery on programme"); each has one to three KPIs that measure it.</div>');
@@ -1759,7 +1780,7 @@ function kpiFromLib(k, i, n) {
 
 // ── Who does what (assignments)
 function vAssign() {
-  setTimeout(syncDepts, 0);
+  setTimeout(syncDepts, 0); setTimeout(syncRoleAssign, 0);
   const ed = canW(); const q = S.as.q.toLowerCase();
   const ppl = Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && (!S.as.cat || p.cat === S.as.cat) && (!S.as.dept || String(p.dept || '').trim().toLowerCase() === String(deptName(S.as.dept)).toLowerCase()) && (!q || (p.name + ' ' + (p.desig || '') + ' ' + (p.empId || '')).toLowerCase().includes(q))).sort(byName);
   const desigs = {}; ppl.forEach(([k, p]) => { if (p.desig) desigs[p.desig] = (desigs[p.desig] || 0) + 1; });
