@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.5. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.5.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -428,7 +428,7 @@ function draw() {
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'dMerge', 'closeMonth', 'addDelay']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -1668,7 +1668,7 @@ function vDepts() {
   const heads = Object.entries(S.people).filter(([k, p]) => p.cat === 'staff' && p.status !== 'left').sort(byName);
   return `<div class="card mt"><div class="row" style="justify-content:space-between"><div><h2>Departments</h2><p class="sub" style="margin:0">Matched to the department names in the staff list. Set the head of each; later heads can write roles for their own staff.</p></div><button class="btn out sm wi" data-a="dEdit" data-v="">Add department</button></div>
     ${Object.keys(S.depts).length ? `<div class="tw mt"><table><thead><tr><th>Department</th><th class="num">Staff</th><th class="num">Roles</th><th>Head</th><th></th></tr></thead><tbody>${Object.entries(S.depts).sort(byName).map(([k, d]) => `<tr><td><b style="font-weight:500">${esc(d.name)}</b></td><td class="num">${pc(d.name)}</td><td class="num">${Object.values(S.roles).filter(r => r.dept === k).length}</td>
-      <td><select class="inp wi" data-c="dHead" data-k="${k}" style="width:auto;min-width:200px"><option value="">— not set —</option>${heads.map(([pk, p]) => `<option value="${pk}" ${d.head === pk ? 'selected' : ''}>${esc(p.name)}${p.desig ? ' · ' + esc(p.desig) : ''}</option>`).join('')}</select></td><td><button class="btn text sm wi" data-a="dEdit" data-v="${k}">Rename</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No departments yet</b></div>'}</div>`;
+      <td><select class="inp wi" data-c="dHead" data-k="${k}" style="width:auto;min-width:200px"><option value="">— not set —</option>${heads.map(([pk, p]) => `<option value="${pk}" ${d.head === pk ? 'selected' : ''}>${esc(p.name)}${p.desig ? ' · ' + esc(p.desig) : ''}</option>`).join('')}</select></td><td style="white-space:nowrap"><button class="btn text sm wi" data-a="dEdit" data-v="${k}">Rename</button>${pc(d.name) ? '' : `<button class="btn text sm wi" data-a="dMerge" data-v="${k}" title="No staff have this department in the HR Portal. Move its roles into the right department.">Merge into…</button>`}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No departments yet</b></div>'}</div>`;
 }
 function vRoleDetail(k) {
   const r = S.roles[k]; const ed = canW(); const kr = krasOf(r); const wsum = kr.reduce((a, x) => a + Number(x.w || 0), 0);
@@ -1690,9 +1690,16 @@ function vRoleDetail(k) {
     <div class="tabs no-print" role="tablist">${tabs.map(([t, l]) => `<button role="tab" data-a="rTab" data-v="${t}" aria-selected="${S.rl.tab === t}">${l}</button>`).join('')}</div>${body}</div>`;
 }
 const seesAssign = () => isAdmin() || isCeo();
+const TPL_DEPT_RX = { 'HR': /\bhr\b|human/i, 'Commercial': /commercial|\bqs\b|quantity|estimat|cost/i, 'Design': /design|architect|interior|technical|draft/i, 'Projects': /project|construct|\bsite\b|civil|fit.?out/i,
+  'Procurement': /procure|purchas|supply chain/i, 'MEP': /\bmep\b|electric|mechanic|plumb|hvac/i, 'HSE': /\bhse\b|safety|qhse/i, 'Finance': /financ|account/i, 'Admin': /admin/i, 'Joinery': /joinery|factory|workshop|carpent/i, 'Office of the CEO': /\bceo\b|\bmd\b|managing|document/i };
+function guessDept(tplDept) {
+  const ex = findByName('depts', tplDept); const pc = n => Object.values(S.people).filter(p => p.cat !== 'supply' && p.status !== 'left' && String(p.dept || '').trim().toLowerCase() === String(n).trim().toLowerCase()).length;
+  const rx = TPL_DEPT_RX[tplDept]; const cands = rx ? Object.entries(S.depts).filter(([k, d]) => rx.test(d.name)).sort((a, b) => pc(b[1].name) - pc(a[1].name)) : [];
+  if (ex && pc(S.depts[ex].name)) return ex; if (cands.length && pc(cands[0][1].name)) return cands[0][0]; return ex || (cands[0] ? cands[0][0] : '');
+}
 function editRole(k, tpl) {
   const r = k ? S.roles[k] : tpl ? { name: tpl.name, purpose: tpl.purpose, resp: tpl.resp, decide: tpl.decide, approve: tpl.approve } : {};
-  const dGuess = k ? r.dept : tpl ? (findByName('depts', tpl.dept) || '+new:' + tpl.dept) : '';
+  const dGuess = k ? r.dept : tpl ? guessDept(tpl.dept) : '';
   const dopts = [['', '— choose —'], ...Object.entries(S.depts).sort(byName).map(([i, d]) => [i, d.name])].concat(tpl && !findByName('depts', tpl.dept) ? [['+new:' + tpl.dept, '+ Create "' + tpl.dept + '"']] : []);
   modal(k ? 'Edit role' : tpl ? 'New role from template' : 'New role', [
     { id: 'name', l: 'Role name', v: r.name }, { id: 'dept', l: 'Department', t: 'sel', v: dGuess, o: dopts },
@@ -1858,8 +1865,8 @@ function vUnits() {
   return ph('Business units', 'Internal profit centres. CK and CKC stay the legal companies for visas, payroll and the HR Portal; a business unit is a layer on top, used for reports, costs and links between units.', ed ? `<div class="row no-print"><button class="btn out wi" data-a="uEdit" data-v="">Add a unit</button></div>` : '') +
     (ed && unassignedDepts.length ? `<div class="banner"><span><b>${unassignedDepts.length}</b> department${unassignedDepts.length === 1 ? ' has' : 's have'} no business unit yet${sugg.length ? `; ${sugg.length} can be suggested from the department name` : ''}.</span>${sugg.length ? `<button class="btn tonal sm wi" data-a="uSugg" style="margin-left:auto">Review suggestions</button>` : ''}</div>` : '') +
     `<div class="rgrid">${cards}</div>` +
-    `<div class="card mt"><h2>Departments</h2><p class="sub">Each department belongs to one unit. Staff follow their department automatically, so their cost and hours count for that unit.</p>
-      ${depts.length ? `<div class="tw"><table><thead><tr><th>Department</th><th class="num">Staff</th><th>Business unit</th></tr></thead><tbody>${depts.map(([k, d]) => `<tr><td><b style="font-weight:500">${esc(d.name)}</b></td><td class="num">${staffOf(d.name)}</td><td>${ed ? `<select class="inp wi" data-c="uDept" data-k="${k}" style="width:auto;min-width:220px">${unitOpts(d.unit)}</select>` : esc(unitName(d.unit))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No departments yet</b>They are created from the staff list in the Role library.</div>'}</div>` +
+    `<div class="card mt"><h2>Departments</h2><p class="sub">Each department belongs to one unit. Staff follow their department automatically, so their cost and hours count for that unit. A department with 0 staff was usually created by a role template; use "Merge into…" to move its roles into the department your staff are actually in.</p>
+      ${depts.length ? `<div class="tw"><table><thead><tr><th>Department</th><th class="num">Staff</th><th>Business unit</th></tr></thead><tbody>${depts.map(([k, d]) => `<tr><td><b style="font-weight:500">${esc(d.name)}</b></td><td class="num">${staffOf(d.name)}</td><td>${ed ? `<select class="inp wi" data-c="uDept" data-k="${k}" style="width:auto;min-width:220px">${unitOpts(d.unit)}</select>${staffOf(d.name) ? '' : ` <button class="btn text sm wi" data-a="dMerge" data-v="${k}">Merge into…</button>`}` : esc(unitName(d.unit))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No departments yet</b>They are created from the staff list in the Role library.</div>'}</div>` +
     `<div class="card"><h2>Sites</h2><p class="sub">Optional. A site that belongs to a unit (for example the factory or warehouse) counts its supply and subcontract labour for that unit. Sites left unassigned count supply and subcontract labour as "Not assigned".</p>
       ${ed && sites.some(([k, s]) => !s.unit) ? `<div class="row" style="gap:8px;margin-bottom:12px"><span class="mmeta">Set every unassigned site to</span><select class="inp" id="uSiteAll" style="width:auto;min-width:220px">${unitOpts('', 'choose a unit…')}</select><button class="btn tonal sm wi" data-a="uSiteAll">Apply</button></div>` : ''}
       ${sites.length ? `<div class="tw"><table><thead><tr><th>Site</th><th>Project</th><th>Business unit</th></tr></thead><tbody>${sites.map(([k, s]) => `<tr><td><b style="font-weight:500">${esc(s.name)}</b></td><td>${esc(s.project || '')}</td><td>${ed ? `<select class="inp wi" data-c="uSite" data-k="${k}" style="width:auto;min-width:220px">${unitOpts(s.unit)}</select>` : esc(unitName(s.unit))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No sites yet</b></div>'}</div>` +
@@ -1933,6 +1940,15 @@ const ACT = {
   addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
   rOpen: b => { S.view = 'roles'; S.rl.sel = b.dataset.v; S.rl.tab = 'resp'; draw(); window.scrollTo(0, 0); }, rBack: () => { S.rl.sel = ''; draw(); }, rTab: b => { S.rl.tab = b.dataset.v; draw(); }, rDept: b => { S.rl.dept = b.dataset.v; draw(); },
   dzOpen: () => { S.dz.open = true; S.dz.rows = null; draw(); }, dzClose: () => { S.dz.open = false; draw(); }, dzCreate,
+  dMerge: b => { const k = b.dataset.v, d = S.depts[k]; if (!d) return;
+    const pcount = name => Object.values(S.people).filter(p => p.cat !== 'supply' && p.status !== 'left' && String(p.dept || '').trim().toLowerCase() === String(name).trim().toLowerCase()).length;
+    const targets = Object.entries(S.depts).filter(([i]) => i !== k).sort((a, b) => (pcount(b[1].name) > 0) - (pcount(a[1].name) > 0) || String(a[1].name).localeCompare(b[1].name));
+    const nRoles = Object.values(S.roles).filter(r => r.dept === k).length;
+    modal('Merge "' + d.name + '" into another department', [{ id: 't', l: 'Move its ' + nRoles + ' role' + (nRoles === 1 ? '' : 's') + ' into', t: 'sel', v: '', o: [['', '— choose —'], ...targets.map(([i, x]) => [i, x.name + ' (' + pcount(x.name) + ' staff)'])], full: 1 }], v => {
+      if (!v.t) { toast('Choose the department to merge into.'); return; } const tg = S.depts[v.t];
+      const upd = { ['depts/' + k]: null }; Object.entries(S.roles).forEach(([rk, r]) => { if (r.dept === k) upd['roles/' + rk + '/dept'] = v.t; });
+      if (d.unit && !tg.unit) upd['depts/' + v.t + '/unit'] = d.unit; if (d.head && !tg.head) upd['depts/' + v.t + '/head'] = d.head;
+      update(ref(db), upd).then(() => { log('Departments merged', d.name + ' → ' + tg.name + ' (' + nRoles + ' roles)'); closeModal(); toast('Merged into ' + tg.name); }).catch(fail); }); },
   uSeed: () => { const have = new Set(Object.values(S.units).map(u => String(u.name).toLowerCase())); const upd = {}; let n = 0; UNIT_SUGGEST.forEach(([nm2, kind]) => { if (have.has(nm2.toLowerCase())) return; upd['units/' + push(ref(db, 'units')).key] = { name: nm2, kind }; n++; });
     if (!n) return; update(ref(db), upd).then(() => { log('Business units created', n + ' units'); toast(n + ' units created'); }).catch(fail); },
   uEdit: b => editUnit(b.dataset.v), uSugg: unitSuggestModal,
