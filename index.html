@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.5.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.5.2. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -1643,6 +1643,8 @@ async function dzCreate() {
   if (!confirm('Create ' + inc.length + ' roles and give ' + n + ' people their main role?')) return;
   try { await update(ref(db), upd); log('Roles created from designations', inc.length + ' roles, ' + n + ' people assigned'); toast(inc.length + ' roles created, ' + n + ' people assigned'); S.dz = { open: false, lab: S.dz.lab, rows: null }; } catch (e) { fail(e); }
 }
+// People who can be a head: all active CK / CKC people (white collar first), so a category mismatch never hides someone
+function headCandidates() { return Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort((a, b) => (a[1].cat !== 'staff') - (b[1].cat !== 'staff') || String(a[1].name || '').localeCompare(String(b[1].name || ''))); }
 // ── Role library
 function vRoles() {
   setTimeout(syncDepts, 0);
@@ -1665,7 +1667,7 @@ function vRoles() {
 }
 function vDepts() {
   const pc = name => Object.values(S.people).filter(p => p.cat !== 'supply' && p.status !== 'left' && String(p.dept || '').trim().toLowerCase() === String(name).toLowerCase()).length;
-  const heads = Object.entries(S.people).filter(([k, p]) => p.cat === 'staff' && p.status !== 'left').sort(byName);
+  const heads = headCandidates();
   return `<div class="card mt"><div class="row" style="justify-content:space-between"><div><h2>Departments</h2><p class="sub" style="margin:0">Matched to the department names in the staff list. Set the head of each; later heads can write roles for their own staff.</p></div><button class="btn out sm wi" data-a="dEdit" data-v="">Add department</button></div>
     ${Object.keys(S.depts).length ? `<div class="tw mt"><table><thead><tr><th>Department</th><th class="num">Staff</th><th class="num">Roles</th><th>Head</th><th></th></tr></thead><tbody>${Object.entries(S.depts).sort(byName).map(([k, d]) => `<tr><td><b style="font-weight:500">${esc(d.name)}</b></td><td class="num">${pc(d.name)}</td><td class="num">${Object.values(S.roles).filter(r => r.dept === k).length}</td>
       <td><select class="inp wi" data-c="dHead" data-k="${k}" style="width:auto;min-width:200px"><option value="">— not set —</option>${heads.map(([pk, p]) => `<option value="${pk}" ${d.head === pk ? 'selected' : ''}>${esc(p.name)}${p.desig ? ' · ' + esc(p.desig) : ''}</option>`).join('')}</select></td><td style="white-space:nowrap"><button class="btn text sm wi" data-a="dEdit" data-v="${k}">Rename</button>${pc(d.name) ? '' : `<button class="btn text sm wi" data-a="dMerge" data-v="${k}" title="No staff have this department in the HR Portal. Move its roles into the right department.">Merge into…</button>`}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No departments yet</b></div>'}</div>`;
@@ -1857,7 +1859,7 @@ function vUnits() {
   const unassignedDepts = depts.filter(([k, d]) => !d.unit);
   const sugg = unassignedDepts.map(([k, d]) => [k, d, suggestUnitFor(d.name)]).filter(x => x[2]);
   const sites = Object.entries(S.sites || {}).sort(byName);
-  const heads = Object.entries(S.people).filter(([k, p]) => p.cat === 'staff' && p.status !== 'left').sort(byName);
+  const heads = headCandidates();
   const cards = unitsSorted().map(([k, u]) => { const ds = depts.filter(([dk, d]) => d.unit === k); const ss = sites.filter(([sk, s]) => s.unit === k); const n = ds.reduce((a, [dk, d]) => a + staffOf(d.name), 0);
     return `<div class="rcard" style="cursor:default"><div class="row" style="justify-content:space-between"><div class="mmeta">${u.kind === 'shared' ? 'Shared services' : 'Profit centre'}</div>${ed ? `<button class="icon-btn wi" data-a="uEdit" data-v="${k}" aria-label="Edit unit">${svg('edit')}</button>` : ''}</div>
       <div style="font:500 16px var(--f);margin:2px 0 6px">${esc(u.name)}</div><div class="rpurp">Head: ${u.head && S.people[u.head] ? esc(S.people[u.head].name) : '<span style="color:var(--faint)">not set</span>'}</div>
@@ -1873,7 +1875,7 @@ function vUnits() {
     `<div class="card"><h2>How units are counted</h2><p class="sub" style="margin:0">CKC and CK staff count for the unit of their department, wherever they work. Supply and subcontract labour count for the unit of the site they work on. Shared services (HR, Finance, Admin, the CEO's office) are reported on their own and not charged to the profit centres; Finance can allocate them in the accounts. Revenue, internal prices between units and profit stay with Finance.</p></div>`;
 }
 function editUnit(k) {
-  const u = S.units[k] || { kind: 'profit' }; const heads = Object.entries(S.people).filter(([pk, p]) => p.cat === 'staff' && p.status !== 'left').sort(byName);
+  const u = S.units[k] || { kind: 'profit' }; const heads = headCandidates();
   modal(k ? 'Edit business unit' : 'New business unit', [{ id: 'name', l: 'Name', v: u.name, full: 1 }, { id: 'kind', l: 'Type', t: 'sel', v: u.kind || 'profit', o: [['profit', 'Profit centre'], ['shared', 'Shared services (not charged to units)']] },
     { id: 'head', l: 'Head of unit', t: 'sel', v: u.head || '', o: [['', '— not set —'], ...heads.map(([pk, p]) => [pk, p.name + (p.desig ? ' · ' + p.desig : '')])], full: 1 }], v => {
     const n = (v.name || '').trim(); if (!n) { toast('Enter the unit name.'); return; }
