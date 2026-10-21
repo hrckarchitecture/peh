@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.3. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -410,7 +410,7 @@ function draw() {
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'closeMonth', 'addDelay']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -993,7 +993,7 @@ function vCosts() {
     return `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.empId || '')} · ${catName(p.cat)}</div></td>
       <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="fx_${k}" value="${own && fx != null ? esc(fx) : ''}" placeholder="${r && !own ? esc(fmtN(fx)) : '—'}" aria-label="Fixed cost">` : fmtN(fx)}</td>
       <td class="num">${ed ? `<input class="inp n wi" inputmode="decimal" id="vr_${k}" value="${own && vr != null ? esc(vr) : ''}" placeholder="${r && !own ? esc(fmtN(vr)) : '—'}" aria-label="Variable cost">` : fmtN(vr)}</td>
-      <td class="num">${r && r.g != null ? fmtN(r.g) : '<span class="mmeta">—</span>'}</td><td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
+      <td class="num">${r && r.g != null ? fmtN(r.g) : '<span class="mmeta">—</span>'}</td><td class="num" style="color:var(--muted)">${r && r.b != null ? fmtN(r.b) : '—'}</td><td class="num" style="color:var(--muted)">${r && r.mol != null ? fmtN(r.mol) : '—'}</td><td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
   const cos = Object.entries(S.companies).sort((a, b) => (a[1].kind === b[1].kind ? 0 : a[1].kind === 'supply' ? -1 : 1) || String(a[1].name).localeCompare(b[1].name));
   const cRows = cos.map(([c, x]) => { const bas = coBasis(c); const r = crateFor(c, M); const own = S.crates[c] && S.crates[c][M];
     return `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td>
@@ -1007,9 +1007,9 @@ function vCosts() {
       <div class="field"><label for="hOtf">CKC overtime factor</label>${ed ? `<input class="inp wi" id="hOtf" inputmode="decimal" value="${H0.otf}">` : `<div>${H0.otf}</div>`}</div>
       <div class="field"><label for="hSotf">Company overtime factor</label>${ed ? `<input class="inp wi" id="hSotf" inputmode="decimal" value="${H0.sotf}">` : `<div>${H0.sotf}</div>`}</div></div>
       ${ed ? '<button class="btn tonal wi" data-a="saveHours">Save</button>' : ''}<p class="note">Standard hours in ${esc(M)}: ${monthStd(M)}. Sundays count as 0; public holidays are not deducted yet.</p></div>` +
-    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC monthly cost per person · ${esc(M)}</h2><p class="sub" style="margin:0">Fixed: salary, pension, gratuity accrual, flights. Variable: medical insurance, visa, training and other actual costs. A month without its own figure uses the most recent earlier month.</p></div>
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC monthly cost per person · ${esc(M)}</h2><p class="sub" style="margin:0">Fixed: salary, pension, gratuity accrual, flights. Variable: medical insurance, visa, training and other actual costs. A month without its own figure uses the most recent earlier month. Basic and MOL salary are shown for record only and are never used in any cost.</p></div>
       ${ed ? `<div class="row no-print"><label class="btn tonal sm wi" style="position:relative">Import from HR Portal (Excel)<input type="file" accept=".xlsx,.xls" data-c="costFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><label class="btn out sm wi" style="position:relative">Import CSV<input type="file" accept=".csv" data-c="importRates" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplRates">Template</button><button class="btn fill wi" data-a="saveRates">Save ${esc(M)}</button></div>` : ''}</div>
-      ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th class="num">of which gross salary</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
+      ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th class="num">of which gross salary</th><th class="num" title="For record only; never used in any cost">Basic (record)</th><th class="num" title="For record only; never used in any cost">MOL (record)</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
     `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Company rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supply or subcontract agreement. Choose hourly or daily per company; subcontractors on a lump-sum or measured contract are set to Contract and are not costed from hours.</p></div>${ed && cos.length ? '<button class="btn fill wi no-print" data-a="saveCrates">Save rates</button>' : ''}</div>
       ${cos.length ? `<div class="tw mt"><table><thead><tr><th>Company</th><th>Type</th><th>Costed by</th><th class="num">Rate (AED)</th><th></th></tr></thead><tbody>${cRows}</tbody></table></div>` : '<div class="empty"><b>No companies yet</b>Add them under People and sites → Companies.</div>'}</div>` +
     (ed ? `<div class="card"><h2>Close a month</h2><p class="sub">After payroll, close the month so timekeepers can no longer change its registers. Super users can still correct it, and every change is logged.</p>
@@ -1383,18 +1383,22 @@ async function costFile(inp) {
   else if (/projection/i.test(months[0])) problem = months[0] + ' is a projection, not an actual month. Only actual months can be imported.';
   if (months && months.length === 1) { const m = months[0].match(/([A-Za-z]{3,4})[a-z]*\.?\s+(\d{4})/); if (m && MON3[m[1].toLowerCase()]) M = m[2] + '-' + String(MON3[m[1].toLowerCase()]).padStart(2, '0'); }
   const hd = low(emp.rows[emp.hi]); const col = n => hd.indexOf(n);
-  const C = { name: col('employee'), co: col('company'), dept: col('department'), g: col('gross salary'), gp: col('gpssa (employer)'), gr: col('gratuity accrual'), fl: col('flight allowance'), fx: col('fixed'), vr: col('variable') };
+  const C = { name: col('employee'), id: col('emp id'), co: col('company'), dept: col('department'), g: col('gross salary'), gp: col('gpssa (employer)'), gr: col('gratuity accrual'), fl: col('flight allowance'), fx: col('fixed'), vr: col('variable'), b: hd.findIndex(h => h.startsWith('basic salary')), mol: hd.findIndex(h => h.startsWith('mol salary')) };
+  const byEmp = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.cat !== 'supply' && p.empId) byEmp[p.empId.trim().toLowerCase()] = k; });
   const n0 = v => { const x = Number(String(v).replace(/,/g, '')); return isFinite(x) ? Math.round(x * 100) / 100 : null; };
   const ckc = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply');
   const rows = [];
   emp.rows.slice(emp.hi + 1).forEach(r => { let name = String(r[C.name] || '').trim(); if (!name || /^total$/i.test(name)) return; const left = / \(left\)$/i.test(name); name = name.replace(/ \(left\)$/i, '');
     const co = C.co >= 0 ? String(r[C.co] || '').trim() : ''; const fx = n0(r[C.fx]), vr = n0(r[C.vr]); if (fx == null && vr == null) return;
-    let cands = ckc.filter(([k, p]) => String(p.name || '').trim().toLowerCase() === name.toLowerCase());
-    if (cands.length > 1 && co) { const c2 = cands.filter(([k, p]) => shortEnt(p.entity) === co); if (c2.length) cands = c2; }
-    rows.push({ name, co, left, dept: C.dept >= 0 ? String(r[C.dept] || '').trim() : '', fx: fx || 0, vr: vr || 0, g: C.g >= 0 ? n0(r[C.g]) : null, gp: C.gp >= 0 ? n0(r[C.gp]) : null, gr: C.gr >= 0 ? n0(r[C.gr]) : null, fl: C.fl >= 0 ? n0(r[C.fl]) : null,
-      to: cands.length === 1 ? cands[0][0] : '', why: cands.length > 1 ? 'More than one person with this name' : cands.length ? '' : 'Not found in PEH' }); });
+    const eid = C.id >= 0 ? String(r[C.id] || '').trim() : '';
+    let cands, how = 'name';
+    if (C.id >= 0) { how = 'id'; const hit = eid && byEmp[eid.toLowerCase()]; cands = hit ? [[hit, S.people[hit]]] : []; }
+    else { cands = ckc.filter(([k, p]) => String(p.name || '').trim().toLowerCase() === name.toLowerCase()); if (cands.length > 1 && co) { const c2 = cands.filter(([k, p]) => shortEnt(p.entity) === co); if (c2.length) cands = c2; } }
+    rows.push({ name, eid, co, left, dept: C.dept >= 0 ? String(r[C.dept] || '').trim() : '', fx: fx || 0, vr: vr || 0, g: C.g >= 0 ? n0(r[C.g]) : null, gp: C.gp >= 0 ? n0(r[C.gp]) : null, gr: C.gr >= 0 ? n0(r[C.gr]) : null, fl: C.fl >= 0 ? n0(r[C.fl]) : null,
+      b: C.b >= 0 ? n0(r[C.b]) : null, mol: C.mol >= 0 ? n0(r[C.mol]) : null,
+      to: cands.length === 1 ? cands[0][0] : '', why: how === 'id' ? (cands.length ? '' : (eid ? 'Emp ID ' + eid + ' is not in PEH' : 'No Emp ID in the file')) : cands.length > 1 ? 'More than one person with this name' : cands.length ? '' : 'Not found in PEH' }); });
   if (!rows.length) { toast('The file has no employee rows.'); return; }
-  S.cimp = { file: f.name, rows, M, problem, months: months || [] }; draw(); window.scrollTo(0, 0);
+  S.cimp = { file: f.name, rows, M, problem, months: months || [], byId: C.id >= 0 }; draw(); window.scrollTo(0, 0);
 }
 function vCostImport() {
   const I = S.cimp; const matched = I.rows.filter(r => r.to).length, open = I.rows.length - matched;
@@ -1404,14 +1408,15 @@ function vCostImport() {
   const blocked = !!I.problem && I.months.length !== 0;
   const tot = I.rows.reduce((t, r) => { if (r.to) { t.fx += r.fx; t.vr += r.vr; } return t; }, { fx: 0, vr: 0 });
   return `<div class="card"><div class="row" style="justify-content:space-between"><h2>Review cost import · ${esc(I.file)}</h2><button class="btn text" data-a="cancelCostImport">Cancel</button></div>
-    <p class="sub">Nothing has been saved yet. Only Fixed, Variable and their parts (gross, pension, gratuity accrual, flights) are kept, in the protected Costs area.</p>
+    <p class="sub">Nothing has been saved yet. Only Fixed, Variable and their parts (gross, pension, gratuity accrual, flights) are kept, in the protected Costs area${I.rows.some(r => r.b != null || r.mol != null) ? ', with basic and MOL salary as record-only figures that are never used in any cost' : ''}.</p>
+    ${I.byId ? '' : '<div class="banner">This file has no Emp ID column, so people are matched by name and company. The updated HR Portal adds Emp ID to this report; with it, matching is exact.</div>'}
     ${I.problem ? `<div class="banner warn">${esc(I.problem)}</div>` : ''}
     <div class="row" style="gap:12px;align-items:flex-end;margin-bottom:12px"><div class="field" style="margin:0"><label for="ciMonth">Month these figures are for</label><input class="inp" type="month" id="ciMonth" data-c="ciMonth" value="${esc(I.M)}" style="width:auto" ${I.months.length === 1 && I.M ? 'disabled' : ''}></div>
       <span class="mmeta">${I.months.length === 1 ? 'Taken from the file: ' + esc(I.months[0]) : ''}</span></div>
-    <div class="grid g4" style="margin-bottom:12px">${[['Rows in file', I.rows.length, ''], ['Matched', matched, 'by name and company'], ['Need a choice', open, 'pick the person or skip'], ['Fixed + variable', 'AED ' + r0(tot.fx + tot.vr), 'matched rows only']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v" style="font-size:26px">${v}</div><div class="s">${s}</div></div>`).join('')}</div>
+    <div class="grid g4" style="margin-bottom:12px">${[['Rows in file', I.rows.length, ''], ['Matched', matched, I.byId ? 'by Emp ID' : 'by name and company'], ['Need a choice', open, 'pick the person or skip'], ['Fixed + variable', 'AED ' + r0(tot.fx + tot.vr), 'matched rows only']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v" style="font-size:26px">${v}</div><div class="s">${s}</div></div>`).join('')}</div>
     ${dupl ? '<div class="banner warn">The same PEH person is chosen for more than one row. Fix that before importing.</div>' : ''}
     <div class="tw" style="max-height:520px;overflow:auto"><table><thead><tr><th>In the file</th><th>PEH person</th><th class="num">Gross</th><th class="num">Fixed</th><th class="num">Variable</th></tr></thead><tbody>
-    ${I.rows.map((r, i) => `<tr><td><b style="font-weight:500">${esc(r.name)}</b>${r.left ? ' <span class="mmeta">(left)</span>' : ''}<div class="mmeta">${esc(r.co)}${r.dept ? ' · ' + esc(r.dept) : ''}</div></td>
+    ${I.rows.map((r, i) => `<tr><td><b style="font-weight:500">${esc(r.name)}</b>${r.left ? ' <span class="mmeta">(left)</span>' : ''}<div class="mmeta">${r.eid ? esc(r.eid) + ' · ' : ''}${esc(r.co)}${r.dept ? ' · ' + esc(r.dept) : ''}</div></td>
       <td><select class="inp" data-c="ciPick" data-k="${i}" style="width:auto;min-width:220px"><option value="">— skip this row —</option>${ppl.map(([k, p]) => `<option value="${k}" ${r.to === k ? 'selected' : ''}>${esc(p.name)}${p.empId ? ' · ' + esc(p.empId) : ''}${p.entity ? ' · ' + esc(shortEnt(p.entity)) : ''}</option>`).join('')}</select>${r.why && !r.to ? `<div class="mmeta" style="color:var(--warn)">${r.why}</div>` : ''}</td>
       <td class="num">${r.g == null ? '—' : r0(r.g)}</td><td class="num">${r0(r.fx)}</td><td class="num">${r0(r.vr)}</td></tr>`).join('')}</tbody></table></div>
     ${replace ? `<p class="note">${replace} people already have figures for ${esc(I.M)}; they will be replaced.</p>` : ''}
@@ -1419,7 +1424,7 @@ function vCostImport() {
 }
 async function doCostImport() {
   const I = S.cimp; if (!I || !I.M || !/^\d{4}-\d{2}$/.test(I.M)) { toast('Choose the month first.'); return; }
-  const upd = {}; let n = 0; I.rows.forEach(r => { if (!r.to) return; const rec = { fx: r.fx, vr: r.vr }; ['g', 'gp', 'gr', 'fl'].forEach(k => { if (r[k] != null && r[k] >= 0) rec[k] = r[k]; }); upd['rates/' + r.to + '/' + I.M] = rec; n++; });
+  const upd = {}; let n = 0; I.rows.forEach(r => { if (!r.to) return; const rec = { fx: r.fx, vr: r.vr }; ['g', 'gp', 'gr', 'fl', 'b', 'mol'].forEach(k => { if (r[k] != null && r[k] >= 0) rec[k] = r[k]; }); upd['rates/' + r.to + '/' + I.M] = rec; n++; });
   if (!n) return; if (!confirm('Save ' + n + ' monthly cost records for ' + I.M + '?')) return;
   try { await update(ref(db), upd); log('Monthly costs imported from HR Portal', I.M + ' · ' + n + ' people'); toast('Saved ' + n + ' records for ' + I.M); S.cr.month = I.M; S.cimp = null; draw(); } catch (e) { fail(e); }
 }
@@ -1429,6 +1434,34 @@ async function doCostImport() {
 // KPI fields: n name, u unit, low (lower is better), freq, src data source, ft money link, auto ('att' = PEH registers, 'handoff' = handoff tracker)
 const K = (n, u, low, freq, src, ft, auto) => ({ n, u, low: !!low, freq, src, ft, auto: auto || '' });
 const TPL_ROLES = [
+  { id: 'hrm', name: 'HR Manager / HR Director', dept: 'HR', purpose: 'Makes sure the right people are in the right roles, at a cost inside the approved plan, with no compliance lapses.',
+    resp: ['Hiring, onboarding and retention of critical roles', 'People cost reporting from actual payroll and benefits', 'Visa, Emirates ID, labour card and WPS compliance', 'HR policy and employee relations', 'Performance framework and appraisals'],
+    decide: ['Recruit within the approved headcount', 'Issue HR notices within policy', 'Approve routine leave and letters'], approve: ['CEO: new headcount, salary changes, exit of critical staff'],
+    kras: [{ n: 'Talent', w: 35, kpis: [K('Days to fill a critical vacancy', 'days', 1, 'Monthly', 'Recruitment tracker', 'Cost control'), K('Critical staff who leave', 'count', 1, 'Quarterly', 'Leavers register', 'Cost control')] },
+      { n: 'People cost', w: 35, kpis: [K('People cost against approved plan', '% of plan', 1, 'Monthly', 'HR Portal total cost analysis', 'Cost control')] },
+      { n: 'Compliance', w: 30, kpis: [K('Renewals completed before expiry', '%', 0, 'Monthly', 'HR Portal expiry register', 'Cost control'), K('Fines and penalties paid', 'AED', 1, 'Monthly', 'PRO payments', 'Cost control')] }] },
+  { id: 'cfo', name: 'Chief Financial Officer / Finance Manager', dept: 'Finance', purpose: 'Makes sure cash comes in on time, goes out to a plan, and the numbers used to decide are current and agreed.',
+    resp: ['Receivables follow-up and the payment run', 'Month-end close and project cost reporting', 'Cash forecast for the CEO', 'Confirming money figures in PEH from records'],
+    decide: ['Hold or release supplier payments inside the cash plan', 'Cut-off dates for cost submissions'], approve: ['CEO: payment priorities when cash is short, payments outside the plan'],
+    kras: [{ n: 'Cash', w: 40, kpis: [K('Overdue receivables collected', '%', 0, 'Monthly', 'Receivables ageing', 'Collections'), K('Supplier payments made to the cash plan', '%', 0, 'Monthly', 'Payment run records', 'Cost control')] },
+      { n: 'Reporting', w: 30, kpis: [K('Working days to close the month', 'days', 1, 'Monthly', 'Close calendar', 'Productivity')] },
+      { n: 'Control', w: 30, kpis: [K('Project cost reports issued on the fixed day', '%', 0, 'Monthly', 'Report log', 'Margin')] }] },
+  { id: 'adm', name: 'Admin Manager', dept: 'Admin', purpose: 'Keeps offices, facilities, vehicles and company documents running without disruption, at a controlled cost.',
+    resp: ['Office and facilities management', 'Vehicles, fuel and maintenance', 'Trade licences, insurance and company documents', 'Admin purchasing and service contracts'],
+    decide: ['Admin purchases within the agreed limit', 'Service providers for routine work'], approve: ['CEO / CFO: contracts and spend above the limit'],
+    kras: [{ n: 'Cost', w: 40, kpis: [K('Admin spend against budget', '% of budget', 1, 'Monthly', 'Admin cost report', 'Cost control')] },
+      { n: 'Service', w: 30, kpis: [K('Admin requests closed within the agreed time', '%', 0, 'Monthly', 'Request log', 'Productivity')] },
+      { n: 'Compliance', w: 30, kpis: [K('Licence, insurance and vehicle renewals before expiry', '%', 0, 'Monthly', 'Renewal register', 'Cost control')] }] },
+  { id: 'gro', name: 'PRO (Government Relations Officer)', dept: 'Admin', purpose: 'Gets visas, labour cards, permits and government transactions done on time, with no fines.',
+    resp: ['Visa, Emirates ID and labour card applications and renewals', 'Company permits and government transactions', 'Tracking expiry dates with HR'], decide: ['Order and timing of submissions'], approve: ['HR Manager: urgent or out-of-policy applications'],
+    kras: [{ n: 'Timeliness', w: 50, kpis: [K('Applications completed within standard processing time', '%', 0, 'Monthly', 'PRO tracker', 'Productivity'), K('Visas and labour cards processed within the agreed days', '%', 0, 'Monthly', 'PEH handoff tracker', 'Productivity', 'handoff')] },
+      { n: 'Compliance', w: 50, kpis: [K('Fines and penalties paid', 'AED', 1, 'Monthly', 'PRO payments', 'Cost control'), K('Renewals completed before expiry', '%', 0, 'Monthly', 'HR Portal expiry register', 'Cost control')] }] },
+  { id: 'jh', name: 'Joinery Head / Factory Manager', dept: 'Joinery', purpose: 'Produces joinery on time, to quality and within cost, so site installation is never waiting.',
+    resp: ['Production planning and workshop output', 'Quality checks before dispatch', 'Material use and wastage', 'Delivery to site on the agreed dates'],
+    decide: ['Workshop sequence and crew allocation', 'Reject material that is not to specification'], approve: ['Project Manager: changes to delivery dates', 'CEO: overtime above the agreed level'],
+    kras: [{ n: 'Delivery', w: 40, kpis: [K('Joinery delivered to site by the required date', '%', 0, 'Weekly', 'PEH handoff tracker', 'Cash timing', 'handoff')] },
+      { n: 'Quality', w: 30, kpis: [K('Items returned for rework', 'count', 1, 'Monthly', 'Rework log', 'Cost control')] },
+      { n: 'Cost', w: 30, kpis: [K('Joinery cost against estimate', '%', 1, 'Monthly', 'Job cost report', 'Margin'), K('Overtime hours per worker', 'hours', 1, 'Monthly', 'PEH site registers', 'Cost control', 'att')] }] },
   { id: 'pm', name: 'Project Manager', dept: 'Projects', purpose: 'Delivers each project on programme, within budget and to the agreed quality, and makes sure the work is billed and collected on time.',
     resp: ['Programme, site coordination and progress reporting', 'Cost control against the approved budget', 'Client and consultant communication', 'Variations raised and priced before extra work starts', 'Billing milestones agreed with QS and Finance'],
     decide: ['Re-sequence site works within the approved programme', 'Approve site purchase requests within the agreed limit', 'Assign and move the site team between activities'],
@@ -1508,7 +1541,7 @@ const TPL_LINKS = [
   ['des', 'pm', 'Approved design drawings for construction', 10], ['dra', 'se', 'Shop drawings for the next works package', 5], ['des', 'se', 'Answers to site RFIs', 2],
   ['qs', 'pro', 'Quantities and BOQ for purchasing', 3], ['pro', 'se', 'Materials delivered to site', 7], ['se', 'qs', 'Measured quantities for the monthly valuation', 2],
   ['qs', 'acc', 'Interim valuation ready for invoicing', 2], ['hr', 'pm', 'Manpower deployed to site', 5], ['pln', 'pm', 'Updated programme and look-ahead', 2],
-  ['dc', 'pm', 'Consultant comments logged and distributed', 1], ['mep', 'se', 'Approved MEP shop drawings', 7], ['hse', 'sv', 'Permit to work issued', 1]
+  ['dc', 'pm', 'Consultant comments logged and distributed', 1], ['jh', 'pm', 'Joinery delivered to site', 10], ['gro', 'hr', 'Visa or labour card processed', 10], ['qs', 'cfo', 'Interim valuation ready for invoicing', 2], ['mep', 'se', 'Approved MEP shop drawings', 7], ['hse', 'sv', 'Permit to work issued', 1]
 ];
 const EXTRA_KPIS = [
   { area: 'People', ...K('Absence rate', '%', 1, 'Monthly', 'PEH site registers', 'Productivity', 'att') },
@@ -1548,6 +1581,45 @@ function syncDepts() {
   const upd = {}; names.forEach(n => upd['depts/' + push(ref(db, 'depts')).key] = { name: n.slice(0, 120) });
   update(ref(db), upd).then(() => { log('Departments added from staff list', names.join(', ')); toast(names.length + ' department' + (names.length === 1 ? '' : 's') + ' added from the staff list'); }).catch(fail).finally(() => { deptSyncBusy = false; });
 }
+
+// ── Roles from designations (one role per designation; template where one fits; main role assigned automatically)
+const TPL_MATCH = [[/hr director|hr manager|head of hr|human resources? manager/, 'hrm'], [/\bcfo\b|chief financ|finance manager|financial controller|head of finance/, 'cfo'], [/admin(istration)? manager|office manager/, 'adm'],
+  [/\bpro\b|public relations|government relations/, 'gro'], [/joinery.*(head|manager|in.?charge|supervisor)|factory manager|workshop manager/, 'jh'], [/project manager|\bpm\b|project director|construction manager|site manager/, 'pm'],
+  [/planning|planner/, 'pln'], [/site engineer|civil engineer|project engineer/, 'se'], [/foreman|supervisor|charge ?hand/, 'sv'], [/architect|interior designer|designer/, 'des'], [/draftsman|draughtsman|shop drawing|\bcad\b/, 'dra'],
+  [/quantity surveyor|\bqs\b|estimat/, 'qs'], [/procurement|purchas|buyer/, 'pro'], [/\bmep\b|electrical engineer|mechanical engineer|hvac/, 'mep'], [/\bhse\b|safety/, 'hse'], [/document control/, 'dc'],
+  [/accountant|accounts/, 'acc'], [/\bhr\b|human resources/, 'hr'], [/time ?keeper/, 'tk']];
+const tplFor = d => { const x = String(d || '').toLowerCase(); const m = TPL_MATCH.find(([rx]) => rx.test(x)); return m ? m[1] : ''; };
+S.dz = { open: false, lab: false, rows: null };
+function desigRows(lab) { const m = {};
+  Object.values(S.people).forEach(p => { if (p.status === 'left' || p.cat === 'supply' || !p.desig) return; if (!lab && p.cat === 'labour') return; const d = p.desig.trim(); m[d] = m[d] || { n: 0, depts: {} }; m[d].n++; if (p.dept) m[d].depts[p.dept.trim()] = (m[d].depts[p.dept.trim()] || 0) + 1; });
+  return Object.entries(m).filter(([d]) => !findByName('roles', d)).map(([d, x]) => { const top = Object.entries(x.depts).sort((a, b) => b[1] - a[1])[0]; return { d, n: x.n, dept: top ? (findByName('depts', top[0]) || '') : '', tpl: tplFor(d), inc: true }; }).sort((a, b) => b.n - a.n || a.d.localeCompare(b.d)); }
+function unassignedMatching() { return Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && p.cat !== 'supply' && p.desig && findByName('roles', p.desig.trim()) && !Object.values(assignOf(k)).some(a => a.lvl === 'main')).length; }
+function vDesigPanel() {
+  if (!canW()) return ''; const pending = desigRows(S.dz.lab).length, unas = unassignedMatching();
+  if (!S.dz.open) return (pending || unas) ? `<div class="banner"><span>${pending ? `<b>${pending}</b> designation${pending === 1 ? '' : 's'} in the staff list ${pending === 1 ? 'has' : 'have'} no role yet` : ''}${pending && unas ? ' · ' : ''}${unas ? `<b>${unas}</b> ${unas === 1 ? 'person has' : 'people have'} a matching role but no main role` : ''}.</span><button class="btn tonal sm wi" data-a="dzOpen" style="margin-left:auto">Review and create</button></div>` : '';
+  if (!S.dz.rows) S.dz.rows = desigRows(S.dz.lab);
+  const R = S.dz.rows, inc = R.filter(r => r.inc), withTpl = inc.filter(r => r.tpl).length, ppl = inc.reduce((a, r) => a + r.n, 0), noDept = inc.filter(r => !r.dept).length;
+  const tplOpts = v => `<option value="">Blank role (department head writes it)</option>` + TPL_ROLES.map(t => `<option value="${t.id}" ${v === t.id ? 'selected' : ''}>Template: ${esc(t.name)}</option>`).join('');
+  return `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Create roles from designations</h2><p class="sub" style="margin:0">One role per designation, named as in the HR Portal. Where a template fits it is filled in for you; edit anything afterwards.</p></div><button class="btn text" data-a="dzClose">Close</button></div>
+    <label class="chk mt"><input type="checkbox" data-c="dzLab" ${S.dz.lab ? 'checked' : ''}>Include labour designations (masons, helpers and so on). Usually not needed: their trades already group them.</label>
+    ${R.length ? `<div class="tw mt" style="max-height:520px;overflow:auto"><table><thead><tr><th></th><th>Designation</th><th class="num">People</th><th>Department</th><th>Start from</th></tr></thead><tbody>${R.map((r, i) => `<tr><td><input type="checkbox" data-c="dzInc" data-k="${i}" ${r.inc ? 'checked' : ''} aria-label="Include ${esc(r.d)}"></td><td><b style="font-weight:500">${esc(r.d)}</b></td><td class="num">${r.n}</td>
+      <td><select class="inp" data-c="dzDept" data-k="${i}" style="width:auto;min-width:160px"><option value="">— choose —</option>${deptOpts(r.dept)}</select></td><td><select class="inp" data-c="dzTpl" data-k="${i}" style="width:auto;min-width:240px">${tplOpts(r.tpl)}</select></td></tr>`).join('')}</tbody></table></div>` : '<p class="note mt">Every designation already has a role.</p>'}
+    ${noDept ? `<div class="banner warn mt">${noDept} selected designation${noDept === 1 ? ' has' : 's have'} no department. Choose one, or untick it.</div>` : ''}
+    <div class="row mt"><button class="btn fill wi" data-a="dzCreate" ${noDept || (!inc.length && !unas) ? 'disabled' : ''}>Create ${inc.length} role${inc.length === 1 ? '' : 's'} (${withTpl} from templates) and assign main roles</button><span class="mmeta">About ${ppl + unas} people will get their main role. People who already have one keep it.</span></div></div>`;
+}
+async function dzCreate() {
+  const inc = (S.dz.rows || []).filter(r => r.inc); if (inc.some(r => !r.dept)) { toast('Choose a department for every selected designation.'); return; }
+  const upd = {}, made = {};
+  inc.forEach(r => { const id = push(ref(db, 'roles')).key; const t = TPL_ROLES.find(x => x.id === r.tpl);
+    const rec = { name: r.d.slice(0, 120), dept: r.dept, purpose: t ? t.purpose : '', resp: t ? t.resp : [], decide: t ? t.decide : [], approve: t ? t.approve : [] };
+    if (t) { rec.tpl = t.id; rec.kras = t.kras.map(x => ({ n: x.n, w: x.w, kpis: x.kpis.map(p => Object.assign({}, p)) })); }
+    upd['roles/' + id] = rec; made[r.d.toLowerCase()] = id; });
+  let n = 0; Object.entries(S.people).forEach(([k, p]) => { if (p.status === 'left' || p.cat === 'supply' || !p.desig) return; const d = p.desig.trim().toLowerCase(); const rid = made[d] || findByName('roles', p.desig.trim()); if (!rid) return;
+    if (!S.dz.lab && p.cat === 'labour' && made[d]) return;
+    if (Object.values(assignOf(k)).some(a => a.lvl === 'main')) return; const subs = Object.values(assignOf(k)).reduce((s, a) => s + Number(a.pct || 0), 0); upd['rassign/' + k + '/' + rid] = { lvl: 'main', pct: Math.max(0, 100 - subs) }; n++; });
+  if (!confirm('Create ' + inc.length + ' roles and give ' + n + ' people their main role?')) return;
+  try { await update(ref(db), upd); log('Roles created from designations', inc.length + ' roles, ' + n + ' people assigned'); toast(inc.length + ' roles created, ' + n + ' people assigned'); S.dz = { open: false, lab: S.dz.lab, rows: null }; } catch (e) { fail(e); }
+}
 // ── Role library
 function vRoles() {
   setTimeout(syncDepts, 0);
@@ -1562,7 +1634,7 @@ function vRoles() {
       <div class="row" style="gap:6px;margin-top:10px">${chip(n ? 'good' : '', n + (n === 1 ? ' person' : ' people'))}${chip(kr.length ? 'pri' : 'warn', kr.length + ' KRA' + (kr.length === 1 ? '' : 's'))}${lk ? chip('', lk + ' link' + (lk === 1 ? '' : 's')) : ''}</div></button>`; };
   return ph('Role library', 'What each role is for, what it is responsible for, what it decides and how its results are measured. Written once, used for everyone in the role.',
       ed ? `<div class="row no-print"><button class="btn tonal wi" data-a="rFromTpl">Add from a template</button><button class="btn out wi" data-a="rEdit" data-v="">Add blank role</button></div>` : '') +
-    (!ed && missingDepts.length ? `<div class="banner">${missingDepts.length} department${missingDepts.length === 1 ? '' : 's'} from the staff list will appear once a super user opens this page.</div>` : '') +
+    vDesigPanel() + (!ed && missingDepts.length ? `<div class="banner">${missingDepts.length} department${missingDepts.length === 1 ? '' : 's'} from the staff list will appear once a super user opens this page.</div>` : '') +
     `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search roles" data-c="rlQ" value="${esc(S.rl.q)}" style="flex:1;min-width:200px">
       <div class="people" style="padding:0;margin:0"><button data-a="rDept" data-v="" aria-pressed="${!S.rl.dept}">All · ${Object.keys(S.roles).length}</button>${Object.entries(S.depts).sort(byName).filter(([k]) => cnt(k)).map(([k, d]) => `<button data-a="rDept" data-v="${k}" aria-pressed="${S.rl.dept === k}">${esc(d.name)} · ${cnt(k)}</button>`).join('')}</div></div></div>` +
     (list.length ? `<div class="rgrid">${list.map(card).join('')}</div>` : `<div class="card"><div class="empty"><b>${Object.keys(S.roles).length ? 'No roles match' : 'No roles yet'}</b>${ed && !Object.keys(S.roles).length ? 'Start with "Add from a template". Ready-made roles cover projects, design, commercial, procurement, MEP, HSE, finance and HR. Edit them to fit CK and CKC.' : ''}</div></div>`) +
@@ -1774,6 +1846,7 @@ const ACT = {
   addWorker: () => { const k = $('#addW').value; if (!k) return; S.reg.draft.w[k] = { s: 'P', h: stdDay(S.reg.date), ot: 0 }; S.reg.edited = true; draw(); },
   addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
   rOpen: b => { S.view = 'roles'; S.rl.sel = b.dataset.v; S.rl.tab = 'resp'; draw(); window.scrollTo(0, 0); }, rBack: () => { S.rl.sel = ''; draw(); }, rTab: b => { S.rl.tab = b.dataset.v; draw(); }, rDept: b => { S.rl.dept = b.dataset.v; draw(); },
+  dzOpen: () => { S.dz.open = true; S.dz.rows = null; draw(); }, dzClose: () => { S.dz.open = false; draw(); }, dzCreate,
   rFromTpl: pickTemplate, rEdit: b => editRole(b.dataset.v), kraEdit: b => editKra(b.dataset.v, b.dataset.i), kpiEdit: b => editKpi(b.dataset.v, b.dataset.i, b.dataset.j), kpiLibPick: b => kpiFromLib(b.dataset.v, b.dataset.i),
   kraDel: b => { const k = b.dataset.v, kr = krasOf(S.roles[k]); const x = kr[+b.dataset.i]; if (!confirm('Delete the KRA "' + x.n + '" and its KPIs?')) return; kr.splice(+b.dataset.i, 1); saveKras(k, kr, 'KRA deleted', x.n); },
   kpiDel: b => { const k = b.dataset.v, kr = krasOf(S.roles[k]); const x = kr[+b.dataset.i].kpis[+b.dataset.j]; if (!confirm('Delete the KPI "' + x.n + '"?')) return; kr[+b.dataset.i].kpis.splice(+b.dataset.j, 1); saveKras(k, kr, 'KPI deleted', x.n); },
@@ -1826,6 +1899,7 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
   else if (c === 'dashChart') { S.dash.chart = t.value; drawDashCharts(); }
   else if (c === 'ppQ') { S.pp.q = t.value; draw(); } else if (c === 'ppCat') { S.pp.cat = t.value; draw(); } else if (c === 'ppSite') { S.pp.site = t.value; draw(); }
   else if (c === 'importPeople') importPeople(t); else if (c === 'importRates') importRates(t);
+  else if (c === 'dzLab') { S.dz.lab = t.checked; S.dz.rows = null; draw(); } else if (c === 'dzInc') { S.dz.rows[+t.dataset.k].inc = t.checked; draw(); } else if (c === 'dzDept') { S.dz.rows[+t.dataset.k].dept = t.value; draw(); } else if (c === 'dzTpl') { S.dz.rows[+t.dataset.k].tpl = t.value; draw(); }
   else if (c === 'rlQ') { S.rl.q = t.value; draw(); } else if (c === 'klQ') { S.kl.q = t.value; draw(); } else if (c === 'klArea') { S.kl.area = t.value; draw(); }
   else if (c === 'asQ') { S.as.q = t.value; draw(); } else if (c === 'asDept') { S.as.dept = t.value; draw(); } else if (c === 'asCat') { S.as.cat = t.value; draw(); }
   else if (c === 'dHead') { const k = t.dataset.k; (t.value ? set(ref(db, 'depts/' + k + '/head'), t.value) : remove(ref(db, 'depts/' + k + '/head'))).then(() => { log('Department head set', (S.depts[k] || {}).name + ': ' + ((S.people[t.value] || {}).name || 'none')); toast('Saved'); }).catch(fail); }
