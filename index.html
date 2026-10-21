@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.4. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.5. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -306,7 +306,7 @@ function status(m, e, ptype) {
 const S = { user: null, acc: null, view: '', sel: '', tab: 'results', ptype: 'W', pkey: nowWeek(), dmonth: new Date().toISOString().slice(0, 7),
   owners: {}, measures: {}, entries: {}, locks: {}, settings: {}, delays: {}, users: {}, access: {}, audit: {}, dirty: false,
   people: {}, peopleBySite: {}, sites: {}, trades: {}, companies: {}, rates: {}, crates: {}, closed: {},
-  depts: {}, roles: {}, rassign: {}, links: {} };
+  depts: {}, roles: {}, rassign: {}, links: {}, units: {} };
 let db, auth, subs = [];
 const isAdmin = () => S.acc && S.acc.role === 'admin';
 const isCeo = () => S.acc && S.acc.role === 'ceo';
@@ -357,7 +357,7 @@ function startData() {
     return;
   }
   watch('owners', v => S.owners = v);
-  watch('depts', v => S.depts = v); watch('roles', v => S.roles = v); watch('links', v => S.links = v);
+  watch('depts', v => S.depts = v); watch('units', v => S.units = v); watch('roles', v => S.roles = v); watch('links', v => S.links = v);
   if (isAdmin() || isCeo()) watch('rassign', v => S.rassign = v);
   watch('locks', v => S.locks = v);
   watch('delays', v => S.delays = v);
@@ -394,7 +394,7 @@ function navItems() {
   n.push(['delays', 'Delay log', 'delay']);
   if (isFin() || isAdmin()) n.push(['finance', 'Finance check', 'fin']);
   if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) n.push(['register', 'Site register', 'cards']); n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
-  n.push(['sep', 'Roles and KPIs']); n.push(['roles', 'Role library', 'cards']); if (isAdmin() || isCeo()) n.push(['assign', 'Who does what', 'me']); n.push(['links', 'Department links', 'link']); n.push(['kpilib', 'KPI library', 'chart']);
+  n.push(['sep', 'Roles and KPIs']); n.push(['units', 'Business units', 'fin']); n.push(['roles', 'Role library', 'cards']); if (isAdmin() || isCeo()) n.push(['assign', 'Who does what', 'me']); n.push(['links', 'Department links', 'link']); n.push(['kpilib', 'KPI library', 'chart']);
   if (isAdmin()) { n.push(['sep', 'Admin']); n.push(['people', 'People and sites', 'me']); n.push(['access', 'Access', 'key']); n.push(['setup', 'Scorecard setup', 'cog']); n.push(['activity', 'Activity', 'hist']); }
   return n;
 }
@@ -423,12 +423,12 @@ function draw() {
   const unconf = finRows().filter(r => !r.e.fConf).length;
   $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
     `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
-  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib }[S.view] || (isTK() ? vRegister : vCards);
+  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib }[S.view] || (isTK() ? vRegister : vCards);
   $('#main').innerHTML = `<div class="page">${costReminder()}${V()}</div>`;
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'closeMonth', 'addDelay']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -677,7 +677,7 @@ function saveAccess(u) {
   set(ref(db, 'access/' + u), rec).then(() => { log('Access set', rec.email + ' → ' + role + (ro && role === 'admin' ? ' (view only)' : '') + (fin ? ' + finance' : '') + (rec.ownerId ? ' · ' + (S.owners[rec.ownerId] || {}).name : '') + (role === 'timekeeper' ? ' · ' + Object.keys(sites).map(k => nm('sites', k)).join(', ') : '')); toast('Access saved'); }).catch(fail);
 }
 function exportBackup() {
-  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
+  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
     const blob = new Blob([JSON.stringify(Object.fromEntries(r), null, 1)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PEH-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     log('Backup downloaded', ''); }).catch(fail);
@@ -852,7 +852,7 @@ function vManpower() {
 }
 
 // ── Reports (any period)
-const GROUPS = [['person', 'Person'], ['site', 'Site'], ['project', 'Project'], ['trade', 'Trade'], ['tgroup', 'Trade group'], ['company', 'Company'], ['cat', 'Category'], ['dept', 'Department'], ['entity', 'Company (CK / CKC)'], ['month', 'Month']];
+const GROUPS = [['person', 'Person'], ['site', 'Site'], ['project', 'Project'], ['trade', 'Trade'], ['tgroup', 'Trade group'], ['company', 'Company'], ['cat', 'Category'], ['dept', 'Department'], ['entity', 'Company (CK / CKC)'], ['unit', 'Business unit'], ['unitsite', 'Business unit of the site'], ['month', 'Month']];
 S.rep = { from: today().slice(0, 8) + '01', to: today(), by: 'project', basis: 'both', cat: '', site: '', res: null, busy: false };
 function keyOf(by, p, pid, sid, date) {
   const s = S.sites[sid] || {};
@@ -866,6 +866,8 @@ function keyOf(by, p, pid, sid, date) {
     case 'cat': return [p.cat, catName(p.cat)];
     case 'dept': return [p.dept || '-', p.dept || 'Not set'];
     case 'entity': return [p.entity || (p.cat === 'supply' || p.cat === 'sub' ? 'Supply / subcontract' : '-'), p.entity || (p.cat === 'supply' || p.cat === 'sub' ? 'Supply / subcontract' : 'Not set')];
+    case 'unit': { const u = (p.cat === 'supply' || p.cat === 'sub') ? siteUnit(sid) : homeUnit(p); return [u || '-', unitName(u)]; }
+    case 'unitsite': { const u = siteUnit(sid); return [u || '-', unitName(u)]; }
     case 'month': { const k = date.slice(0, 7); return [k, new Date(k + '-01T00:00:00').toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })]; }
   }
 }
@@ -879,7 +881,7 @@ function computeReport(o) {
         const [k, l] = keyOf(o.by, p, pid, sid, date); const x = row(k, l); const h = Number(a.h || 0);
         if ((a.s === 'P' || a.s === 'WFH') && (h > 0 || Number(a.ot || 0) > 0)) x.md++; x.h += h; x.ot += Number(a.ot || 0); if (a.s === 'A') x.abs++; if (LEAVE(a.s)) x.lv++;
         if (seesCost()) { const c = dayCost(p, pid, date, a, o.basis); if (c == null) { x.miss++; noRate++; } else { x.cost += c; x.costedH += h + Number(a.ot || 0); } } });
-      if ((!o.cat || o.cat === 'sub') && ['site', 'project', 'company', 'month', 'cat'].includes(o.by)) Object.entries(r.sub || {}).forEach(([c, n]) => { const p = { cat: 'sub', company: c }; const [k, l] = keyOf(o.by, p, '', sid, date); const x = row(k, l); n = Number(n); x.sub += n;
+      if ((!o.cat || o.cat === 'sub') && ['site', 'project', 'company', 'month', 'cat', 'unit', 'unitsite'].includes(o.by)) Object.entries(r.sub || {}).forEach(([c, n]) => { const p = { cat: 'sub', company: c }; const [k, l] = keyOf(o.by, p, '', sid, date); const x = row(k, l); n = Number(n); x.sub += n;
         if (seesCost() && o.basis !== 'fixed') { const hh = n * subHours(date); const v = companyCost(c, date, hh, 0); if (v.state === 'norate') { x.miss++; noRate++; } else if (v.state === 'ok') { x.subC += v.cost; x.costedH += hh; } } }); }); }));
   const list = Object.entries(rows).map(([k, x]) => x).sort((a, b) => seesCost() ? (b.cost + b.subC) - (a.cost + a.subC) || b.h - a.h : b.h - a.h);
   const tot = list.reduce((t, x) => { ['md', 'h', 'ot', 'abs', 'lv', 'cost', 'miss', 'sub', 'subC', 'costedH'].forEach(f => t[f] += x[f]); return t; }, { md: 0, h: 0, ot: 0, abs: 0, lv: 0, cost: 0, miss: 0, sub: 0, subC: 0, costedH: 0 });
@@ -899,7 +901,7 @@ function vReports() {
   const sel = (id, v, opts, lab) => `<div class="field" style="margin:0"><label for="${id}">${lab}</label><select class="inp" id="${id}" data-c="rep" data-f="${id.slice(2)}">${opts.map(([k, l]) => `<option value="${esc(k)}" ${k === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
   const stale = R && o.ran !== JSON.stringify([o.from, o.to, o.by, o.basis, o.cat, o.site]);
   const label = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
-  const showSub = ['site', 'project', 'company', 'month', 'cat'].includes(o.by) && o.cat !== 'staff' && o.cat !== 'labour' && o.cat !== 'supply';
+  const showSub = ['site', 'project', 'company', 'month', 'cat', 'unit', 'unitsite'].includes(o.by) && o.cat !== 'staff' && o.cat !== 'labour' && o.cat !== 'supply';
   const head = `<tr><th>${esc(label)}</th><th class="num">Man-days</th><th class="num">Normal hours</th><th class="num">Overtime hours</th><th class="num">Absent days</th><th class="num">Leave days</th>${showSub ? '<th class="num">Subcontract man-days</th>' : ''}${cost ? '<th class="num">CKC + supply cost</th>' + (showSub ? '<th class="num">Subcontract cost</th>' : '') + '<th class="num">Total cost (AED)</th><th class="num">AED / man-hour</th>' : ''}</tr>`;
   const line = (x, b) => `<tr>${b ? '<td><b>Total</b></td>' : `<td>${esc(x.label)}</td>`}<td class="num">${fmtH(x.md)}</td><td class="num">${fmtH(x.h)}</td><td class="num">${fmtH(x.ot)}</td><td class="num">${x.abs}</td><td class="num">${x.lv}</td>${showSub ? `<td class="num">${fmtN(x.sub)}</td>` : ''}${cost ? `<td class="num">${r0(x.cost)}</td>${showSub ? `<td class="num">${r0(x.subC)}</td>` : ''}<td class="num">${b ? '<b>' : ''}${r0(x.cost + x.subC)}${x.miss ? ' <span class="chip warn plain" title="Days with no rate on record">' + x.miss + ' no rate</span>' : ''}${b ? '</b>' : ''}</td><td class="num">${x.costedH ? r1((x.cost + x.subC) / x.costedH) : '—'}</td>` : ''}</tr>`;
   return ph('Reports', 'Any period, grouped the way you need. Built from the daily site registers.') +
@@ -971,7 +973,7 @@ function editMaster(k) {
   modal((k ? 'Edit ' : 'Add ') + (col === 'sites' ? 'site' : col === 'trades' ? 'trade' : 'company'), f, r => {
     if (!r.name) { toast('Enter the name.'); return; }
     if (Object.entries(S[col]).some(([i, y]) => i !== k && String(y.name).trim().toLowerCase() === r.name.trim().toLowerCase())) { toast('That name already exists.'); return; }
-    const rec = { name: r.name.slice(0, 120) }; if (col === 'sites') { if (r.project) rec.project = r.project.slice(0, 120); if (r.region) rec.region = r.region.slice(0, 80); rec.active = r.active === '1'; } if (col === 'trades') rec.group = r.group; if (col === 'companies') { rec.kind = r.kind; if (r.kind === 'supply' && r.cb === 'contract') { toast('Supply labour is costed hourly or daily. Contract is for subcontractors only.'); return; } rec.cb = r.cb; }
+    const rec = { name: r.name.slice(0, 120) }; if (col === 'sites') { if (r.project) rec.project = r.project.slice(0, 120); if (r.region) rec.region = r.region.slice(0, 80); rec.active = r.active === '1'; if (k && S.sites[k] && S.sites[k].unit) rec.unit = S.sites[k].unit; } if (col === 'trades') rec.group = r.group; if (col === 'companies') { rec.kind = r.kind; if (r.kind === 'supply' && r.cb === 'contract') { toast('Supply labour is costed hourly or daily. Contract is for subcontractors only.'); return; } rec.cb = r.cb; }
     const id = k || push(ref(db, col)).key;
     set(ref(db, col + '/' + id), rec).then(() => { log((k ? 'Edited ' : 'Added ') + col.slice(0, -1), rec.name); closeModal(); toast('Saved'); }).catch(fail);
   });
@@ -1096,7 +1098,7 @@ async function pdfDoc(title, sub) {
 const numAlign = n => { const o = {}; for (let i = 1; i < n; i++) o[i] = { halign: 'right' }; return o; };
 async function reportPdf() {
   const o = S.rep, R = o.res; if (!R) return; const cost = seesCost(); const lab = (GROUPS.find(g => g[0] === o.by) || ['', ''])[1];
-  const showSub = ['site', 'project', 'company', 'month', 'cat'].includes(o.by) && !['staff', 'labour', 'supply'].includes(o.cat);
+  const showSub = ['site', 'project', 'company', 'month', 'cat', 'unit', 'unitsite'].includes(o.by) && !['staff', 'labour', 'supply'].includes(o.cat);
   const hd = [lab, 'Man-days', 'Normal hours', 'Overtime hours', 'Absent days', 'Leave days'].concat(showSub ? ['Subcontract man-days'] : [], cost ? ['CKC + supply cost'].concat(showSub ? ['Sub cost'] : [], ['Total cost (AED)', 'AED/man-hour']) : []);
   const ln = (x, t) => [t || x.label, fmtH(x.md), fmtH(x.h), fmtH(x.ot), String(x.abs), String(x.lv)].concat(showSub ? [fmtN(x.sub)] : [], cost ? [r0(x.cost)].concat(showSub ? [r0(x.subC)] : [], [r0(x.cost + x.subC) + (x.miss ? '  (' + x.miss + ' no rate)' : ''), x.costedH ? r1((x.cost + x.subC) / x.costedH) : '—']) : []);
   const sub = fmtD(o.from) + ' to ' + fmtD(o.to) + ' · grouped by ' + lab.toLowerCase() + (o.site ? ' · ' + nm('sites', o.site) : '') + (o.cat ? ' · ' + catName(o.cat) : '') + (cost ? ' · ' + (o.basis === 'both' ? 'fixed + variable cost' : o.basis + ' cost only') : '') + ' · ' + R.days + ' days with registers';
@@ -1161,7 +1163,7 @@ function computeDash(o) {
   const cost = seesCost(); const days = datesBetween(o.from, o.to);
   const siteOk = sid => (!isTK() || tkSites().includes(sid)) && (!o.site || sid === o.site) && (!o.proj || projOf(sid) === o.proj);
   const want = k => o.show === 'all' || o.show === k || (o.show === 'ckcsup' && (k === 'ckc' || k === 'supply'));
-  const perDay = [], site = {}, proj = {}, comp = {}, emp = {}, st = {}; let dataDays = 0, noRate = 0, contractH = 0;
+  const perDay = [], site = {}, proj = {}, comp = {}, emp = {}, st = {}, unit = {}; const DU = deptUnitMap(); let dataDays = 0, noRate = 0, contractH = 0;
   const T = { ckc: 0, sup: 0, sub: 0, ckcH: 0, supH: 0, subH: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0 };
   const bucket = (m, k, extra) => m[k] = m[k] || Object.assign({ ppl: 0, ckc: 0, sup: 0, sub: 0, h: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0, sites: new Set() }, extra || {});
   days.forEach(date => {
@@ -1171,13 +1173,14 @@ function computeDash(o) {
         if (a.s !== 'P' && a.s !== 'WFH') return; const h = Number(a.h || 0), ot = Number(a.ot || 0), hh = h + ot;
         let c = 0, ok = true; if (cost) { const v = dayCost(p, pid, date, a, o.basis); if (v == null) { ok = false; noRate++; } else c = v; }
         const k = isC ? 'ckc' : 'sup'; x[k]++; x[k + 'H'] += hh; x[k + 'C'] += c;
-        [S1, P1].forEach(b => { b.ppl++; b[k]++; b.h += hh; b[k + 'C'] += c; if (ok) b.costedH += hh; });
+        const U1 = bucket(unit, isC ? homeUnit(p, DU) : siteUnit(sid)); U1.sites.add(sid);
+        [S1, P1, U1].forEach(b => { b.ppl++; b[k]++; b.h += hh; b[k + 'C'] += c; if (ok) b.costedH += hh; });
         if (ok) T.costedH += hh;
         if (isC) { const e = emp[pid] = emp[pid] || { name: p.name, id: p.empId || '', trade: nm('trades', p.trade), days: 0, h: 0, c: 0, miss: 0 }; e.days++; e.h += hh; e.c += c; if (!ok) e.miss++; }
         else { const cm = bucket(comp, p.company, { kind: 'supply', days: 0, miss: 0 }); cm.days++; cm.h += hh; cm.supC += c; if (!ok) cm.miss++; cm.sites.add(sid); } });
       if (want('sub')) Object.entries(r.sub || {}).forEach(([cid, n]) => { n = Number(n || 0); if (!n) return; const hh = n * subHours(date);
         let c = 0, state = 'ok'; if (cost && o.basis !== 'fixed') { const v = companyCost(cid, date, hh, 0); c = v.cost; state = v.state; if (state === 'norate') noRate++; if (state === 'contract') contractH += hh; }
-        x.sub += n; x.subH += hh; x.subC += c; [S1, P1].forEach(b => { b.ppl += n; b.sub += n; b.h += hh; b.subC += c; if (state === 'ok') b.costedH += hh; }); if (state === 'ok' && cost && o.basis !== 'fixed') T.costedH += hh;
+        x.sub += n; x.subH += hh; x.subC += c; const U2 = bucket(unit, siteUnit(sid)); U2.sites.add(sid); [S1, P1, U2].forEach(b => { b.ppl += n; b.sub += n; b.h += hh; b.subC += c; if (state === 'ok') b.costedH += hh; }); if (state === 'ok' && cost && o.basis !== 'fixed') T.costedH += hh;
         const cm = bucket(comp, cid, { kind: 'sub', days: 0, miss: 0 }); cm.days += n; cm.h += hh; cm.subC += c; if (state === 'norate') cm.miss++; cm.sites.add(sid); }); });
     if (any) { dataDays++; x.any = true; } perDay.push(x); ['ckc', 'sup', 'sub', 'ckcH', 'supH', 'subH', 'ckcC', 'supC', 'subC'].forEach(k => T[k] += x[k]);
   });
@@ -1185,7 +1188,7 @@ function computeDash(o) {
   Object.entries(dayData(lastD)).forEach(([sid, r]) => { if (!siteOk(sid)) return; Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { cat: 'labour' }; if (p.cat !== 'supply' && want('ckc')) st[a.s] = (st[a.s] || 0) + 1; }); });
   const activeTo = Object.entries(dayData(lastD)).filter(([sid, r]) => siteOk(sid) && (Object.values(r.w || {}).some(a => a.s === 'P' || a.s === 'WFH') || Object.values(r.sub || {}).some(n => n > 0))).length;
   const selSites = Object.keys(S.sites).filter(siteOk).length;
-  return { perDay, site, proj, comp, emp, st, T, dataDays, noRate, contractH, last, lastD, activeTo, selSites, days: days.length };
+  return { perDay, site, proj, comp, emp, st, unit, T, dataDays, noRate, contractH, last, lastD, activeTo, selSites, days: days.length };
 }
 async function runDash() {
   const o = S.dash; if (!o.from || !o.to || o.from > o.to) { toast('Choose a valid From and To date.'); return; }
@@ -1229,6 +1232,7 @@ function vDash() {
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">${STAT.map(([c, l]) => `<div class="tile" style="padding:12px 14px;background:var(--surface2);border:0"><div class="v" style="font-size:24px;margin:0">${R.st[c] || 0}</div><div class="s" style="color:var(--muted)">${l} · ${ckcTot ? Math.round((R.st[c] || 0) / ckcTot * 100) : 0}%</div></div>`).join('')}</div></div>`;
   const dd = R.dataDays || 1;
   const projRows = Object.entries(R.proj).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => { const c = x.ckcC + x.supC + x.subC; return `<tr><td>${esc(k)}</td><td class="num">${x.sites.size}</td><td class="num">${r1(x.ppl / dd)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${r0(x.ckcC)}</td><td class="num">${r0(x.supC)}</td><td class="num">${r0(x.subC)}</td><td class="num"><b>${r0(c)}</b></td><td class="num">${x.costedH ? r1(c / x.costedH) : '—'}</td>` : ''}</tr>`; }).join('');
+  const unitRows = (!isTK() && Object.keys(S.units || {}).length) ? Object.entries(R.unit || {}).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => { const c = x.ckcC + x.supC + x.subC; const u = S.units[k]; return `<tr><td><b style="font-weight:500">${esc(unitName(k))}</b>${u && u.kind === 'shared' ? ' <span class="mmeta">shared</span>' : ''}</td><td class="num">${r1(x.ppl / dd)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${r0(x.ckcC)}</td><td class="num">${r0(x.supC)}</td><td class="num">${r0(x.subC)}</td><td class="num"><b>${r0(c)}</b></td><td class="num">${x.costedH ? r1(c / x.costedH) : '—'}</td>` : ''}</tr>`; }).join('') : '';
   const siteRows = Object.entries(R.site).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => `<tr><td>${esc(nm('sites', k))}</td><td class="num">${r1(x.ppl / dd)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${r0(x.ckcC)}</td><td class="num">${r0(x.supC + x.subC)}</td><td class="num"><b>${r0(x.ckcC + x.supC + x.subC)}</b></td>` : ''}</tr>`).join('');
   const compRows = Object.entries(R.comp).sort((a, b) => b[1].days - a[1].days).map(([k, x]) => { const b = coBasis(k); const r = crateFor(k, o.to.slice(0, 7)); const c = x.supC + x.subC;
     return `<tr><td>${esc(nm('companies', k))}</td><td>${chip(x.kind === 'sub' ? 'pri' : 'warn', x.kind === 'sub' ? 'Subcontract' : 'Supply')}</td><td class="num">${r0(x.days)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${b === 'contract' ? '<span class="mmeta">Contract</span>' : r && r.r != null ? r1(r.r) + ' / ' + (r.u === 'day' ? 'day' : 'hour') : '<span class="chip warn plain">no rate</span>'}</td><td class="num"><b>${b === 'contract' ? '<span class="mmeta">not costed</span>' : r0(c)}</b>${x.miss ? ' <span class="chip warn plain">' + x.miss + ' no rate</span>' : ''}</td>` : ''}</tr>`; }).join('');
@@ -1243,6 +1247,7 @@ function vDash() {
        <div style="position:relative;height:300px"><canvas id="chDay" role="img" aria-label="Per-day chart"></canvas></div></div>
      <div class="card" style="margin:0"><h2>Average per site</h2><p class="sub">People per day, averaged over the ${R.dataDays} days with registers.</p><div style="position:relative;height:${Math.max(200, Object.keys(R.site).length * 30 + 60)}px"><canvas id="chSite" role="img" aria-label="Average people per site"></canvas></div></div></div>` +
     status +
+    (unitRows ? `<div class="card"><h2>By business unit</h2><p class="sub">Staff count for the unit of their department, wherever they work; supply and subcontract labour count for the unit of the site.</p><div class="tw"><table><thead><tr><th>Business unit</th><th class="num">Avg people/day</th><th class="num">Man-hours</th>${cost ? '<th class="num">Staff cost</th><th class="num">Supply cost</th><th class="num">Sub cost</th><th class="num">Total cost</th><th class="num">AED / man-hour</th>' : ''}</tr></thead><tbody>${unitRows}</tbody></table></div></div>` : '') +
     `<div class="card"><h2>By project</h2><p class="sub">A project is a group of sites, set under People and sites.</p>${projRows ? `<div class="tw"><table><thead><tr><th>Project</th><th class="num">Sites</th><th class="num">Avg people/day</th><th class="num">Man-hours</th>${cost ? '<th class="num">CKC cost</th><th class="num">Supply cost</th><th class="num">Sub cost</th><th class="num">Total cost</th><th class="num">AED / man-hour</th>' : ''}</tr></thead><tbody>${projRows}</tbody></table></div>` : '<div class="empty"><b>No register entries in this period</b></div>'}</div>` +
     `<div class="card"><h2>By site</h2><p class="sub">People are averaged per day. Man-hours${cost ? ' and cost are' : ' are'} totals for the dates chosen.</p>${siteRows ? `<div class="tw"><table><thead><tr><th>Site</th><th class="num">Avg people/day</th><th class="num">Man-hours</th>${cost ? '<th class="num">CKC cost</th><th class="num">Supply + sub cost</th><th class="num">Total cost</th>' : ''}</tr></thead><tbody>${siteRows}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>` +
     `<div class="card"><h2>Supply and subcontract companies</h2><p class="sub">Labour days = people counted per day. Subcontract man-hours = headcount × standard hours of that day.${cost ? ' Rates come from Costs and rates; contract subcontractors are not costed here.' : ''}</p>${compRows ? `<div class="tw"><table><thead><tr><th>Company</th><th>Type</th><th class="num">Labour days</th><th class="num">Man-hours</th>${cost ? '<th class="num">Rate (AED)</th><th class="num">Cost</th>' : ''}</tr></thead><tbody>${compRows}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>` +
@@ -1781,7 +1786,10 @@ function vLinks() {
   return ph('Department links', 'Who provides what to whom, and within how many days. When a provider is late, the receiver cannot start: this map shows where those delays come from.', ed ? `<div class="row no-print">${sugg ? `<button class="btn tonal wi" data-a="lSugg">Add ${sugg} suggested link${sugg === 1 ? '' : 's'}</button>` : ''}<button class="btn out wi" data-a="lEdit" data-v="">Add link</button></div>` : '') +
     (!L2.length ? `<div class="card"><div class="empty"><b>No links yet</b>${Object.keys(S.roles).length ? (ed ? 'Add them one by one, or use the suggested links for roles created from templates.' : '') : 'Add roles in the Role library first.'}</div></div>` :
     `<div class="card"><h2>Who depends on whom</h2><p class="sub">Number of handoffs from each department (rows) to each department (columns).</p><div class="tw"><table><thead><tr><th>Provides ↓ · Receives →</th>${depts.map(d => `<th class="num">${esc(deptName(d))}</th>`).join('')}</tr></thead><tbody>${depts.map(a => `<tr><td><b style="font-weight:500">${esc(deptName(a))}</b></td>${depts.map(b => `<td class="num">${m[a + '|' + b] ? `<span class="chip pri plain">${m[a + '|' + b]}</span>` : '<span class="mmeta">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>` +
-    Object.entries(grouped).sort((a, b) => deptName(a[0]).localeCompare(deptName(b[0]))).map(([d, list]) => `<div class="card"><h2>${esc(deptName(d))} provides</h2><div class="tw mt"><table><thead><tr><th>Provider</th><th>Delivers</th><th>To</th><th class="num">Within</th><th></th></tr></thead><tbody>${list.map(([k, l]) => `<tr><td><button class="lnk" data-a="rOpen" data-v="${l.from}">${esc(S.roles[l.from].name)}</button></td><td><b style="font-weight:500">${esc(l.what)}</b>${l.note ? `<div class="mmeta">${esc(l.note)}</div>` : ''}</td><td><button class="lnk" data-a="rOpen" data-v="${l.to}">${esc(S.roles[l.to].name)}</button><div class="mmeta">${esc(deptName(S.roles[l.to].dept))}</div></td><td class="num">${l.sla} ${l.cd ? 'calendar' : 'working'} days</td><td>${ed ? `<button class="icon-btn wi" data-a="lEdit" data-v="${k}" aria-label="Edit link">${svg('edit')}</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>`).join('')) +
+    (Object.keys(S.units || {}).length ? (() => { const um = {}; let nx = 0; L2.forEach(([k, l]) => { const a = roleUnit(l.from), b = roleUnit(l.to); if (a && b && a !== b) { um[a + '|' + b] = (um[a + '|' + b] || 0) + 1; nx++; } }); if (!nx) return '';
+      const us = [...new Set(Object.keys(um).flatMap(x => x.split('|')))].sort((a, b) => unitName(a).localeCompare(unitName(b)));
+      return `<div class="card"><h2>Between business units</h2><p class="sub">${nx} handoff${nx === 1 ? '' : 's'} where one unit delivers to another. A late delivery here is one unit costing another money.</p><div class="tw"><table><thead><tr><th>Provides ↓ · Receives →</th>${us.map(u => `<th class="num">${esc(unitName(u))}</th>`).join('')}</tr></thead><tbody>${us.map(a => `<tr><td><b style="font-weight:500">${esc(unitName(a))}</b></td>${us.map(b => `<td class="num">${um[a + '|' + b] ? `<span class="chip warn plain">${um[a + '|' + b]}</span>` : '<span class="mmeta">·</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div></div>`; })() : '') +
+    Object.entries(grouped).sort((a, b) => deptName(a[0]).localeCompare(deptName(b[0]))).map(([d, list]) => `<div class="card"><h2>${esc(deptName(d))} provides</h2><div class="tw mt"><table><thead><tr><th>Provider</th><th>Delivers</th><th>To</th><th class="num">Within</th><th></th></tr></thead><tbody>${list.map(([k, l]) => `<tr><td><button class="lnk" data-a="rOpen" data-v="${l.from}">${esc(S.roles[l.from].name)}</button></td><td><b style="font-weight:500">${esc(l.what)}</b>${l.note ? `<div class="mmeta">${esc(l.note)}</div>` : ''}</td><td><button class="lnk" data-a="rOpen" data-v="${l.to}">${esc(S.roles[l.to].name)}</button><div class="mmeta">${esc(deptName(S.roles[l.to].dept))}</div></td><td class="num">${l.sla} ${l.cd ? 'calendar' : 'working'} days${(() => { const a = roleUnit(l.from), b = roleUnit(l.to); return a && b && a !== b ? `<div style="margin-top:3px"><span class="chip warn plain" title="${esc(unitName(a))} delivers to ${esc(unitName(b))}">Inter-unit</span></div>` : ''; })()}</td><td>${ed ? `<button class="icon-btn wi" data-a="lEdit" data-v="${k}" aria-label="Edit link">${svg('edit')}</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>`).join('')) +
     `<p class="note">Next step: a handoff tracker. Each request gets a due date from these agreed days, overdue items are flagged, and on-time % and delay days are calculated automatically for the providing role.</p>`;
 }
 function editLink(k, fromRole) {
@@ -1814,6 +1822,66 @@ function libToRole(n) {
     if (kr[i].kpis.some(x => x.n === p.n)) { toast('That role already has this KPI.'); return; }
     const rec = Object.assign({}, p); delete rec.area; delete rec.from; delete rec.kra; kr[i].kpis.push(rec);
     saveKras(v.r, kr, 'KPI added from library', p.n);
+  });
+}
+
+
+// ══ Step 3.5: business units (internal profit centres). CK and CKC stay the legal companies; a unit is a layer on top. ══
+const UNIT_SUGGEST = [['Fit-out / Main contracting', 'profit'], ['Design', 'profit'], ['Joinery / Factory', 'profit'], ['MEP', 'profit'], ['Structural', 'profit'], ['Shared services', 'shared']];
+// Department name → suggested unit name (only a suggestion; everything is shown for review)
+const UNIT_MATCH = [[/joinery|factory|workshop|carpent|upholster/i, 'Joinery / Factory'], [/\bmep\b|electric|plumb|hvac|mechanical|ac\b|duct/i, 'MEP'], [/struct|steel/i, 'Structural'],
+  [/design|architect|interior|draft|cad/i, 'Design'], [/\bhr\b|human|finance|account|admin|\bpro\b|\bit\b|office of|ceo|\bmd\b|management|legal|procure|purchas|store|logistic|driver|transport|document|reception|secretar/i, 'Shared services'],
+  [/project|site|construct|fit.?out|civil|contract|plan|qs|quantity|estimat|hse|safety|maint/i, 'Fit-out / Main contracting']];
+const unitName = id => id && S.units[id] ? S.units[id].name : 'Not assigned';
+const unitsSorted = () => Object.entries(S.units || {}).sort((a, b) => (a[1].kind === 'shared') - (b[1].kind === 'shared') || String(a[1].name).localeCompare(b[1].name));
+const unitOpts = (sel, blank) => `<option value="">${esc(blank || '— not assigned —')}</option>` + unitsSorted().map(([k, u]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(u.name)}</option>`).join('');
+function deptUnitMap() { const m = {}; Object.values(S.depts || {}).forEach(d => { if (d && d.unit) m[String(d.name || '').trim().toLowerCase()] = d.unit; }); return m; }
+const homeUnit = (p, DU) => (DU || deptUnitMap())[String((p && p.dept) || '').trim().toLowerCase()] || '';
+const siteUnit = sid => (S.sites[sid] || {}).unit || '';
+const roleUnit = rid => { const r = S.roles[rid]; return r && S.depts[r.dept] ? (S.depts[r.dept].unit || '') : ''; };
+function suggestUnitFor(deptName) { const m = UNIT_MATCH.find(([rx]) => rx.test(deptName || '')); if (!m) return ''; return findByName('units', m[1]) || ''; }
+
+function vUnits() {
+  const ed = canW(); const has = Object.keys(S.units || {}).length;
+  const staffOf = name => Object.values(S.people).filter(p => p.cat !== 'supply' && p.status !== 'left' && String(p.dept || '').trim().toLowerCase() === String(name).trim().toLowerCase()).length;
+  if (!has) return ph('Business units', 'Internal profit centres. CK and CKC stay the legal companies for visas, payroll and the HR Portal; a business unit is a layer on top, used for reports, costs and links between units.') +
+    `<div class="card"><div class="empty"><b>No business units yet</b>${ed ? `Start with the suggested units: ${UNIT_SUGGEST.map(u => esc(u[0])).join(', ')}. You can rename, add or remove any of them afterwards.<div class="row mt" style="justify-content:center"><button class="btn fill wi" data-a="uSeed">Create the suggested units</button><button class="btn out wi" data-a="uEdit" data-v="">Add a unit</button></div>` : 'A super user sets them up.'}</div></div>`;
+  const depts = Object.entries(S.depts || {}).sort(byName);
+  const unassignedDepts = depts.filter(([k, d]) => !d.unit);
+  const sugg = unassignedDepts.map(([k, d]) => [k, d, suggestUnitFor(d.name)]).filter(x => x[2]);
+  const sites = Object.entries(S.sites || {}).sort(byName);
+  const heads = Object.entries(S.people).filter(([k, p]) => p.cat === 'staff' && p.status !== 'left').sort(byName);
+  const cards = unitsSorted().map(([k, u]) => { const ds = depts.filter(([dk, d]) => d.unit === k); const ss = sites.filter(([sk, s]) => s.unit === k); const n = ds.reduce((a, [dk, d]) => a + staffOf(d.name), 0);
+    return `<div class="rcard" style="cursor:default"><div class="row" style="justify-content:space-between"><div class="mmeta">${u.kind === 'shared' ? 'Shared services' : 'Profit centre'}</div>${ed ? `<button class="icon-btn wi" data-a="uEdit" data-v="${k}" aria-label="Edit unit">${svg('edit')}</button>` : ''}</div>
+      <div style="font:500 16px var(--f);margin:2px 0 6px">${esc(u.name)}</div><div class="rpurp">Head: ${u.head && S.people[u.head] ? esc(S.people[u.head].name) : '<span style="color:var(--faint)">not set</span>'}</div>
+      <div class="row" style="gap:6px;margin-top:10px">${chip(n ? 'good' : '', n + ' staff')}${chip(ds.length ? 'pri' : 'warn', ds.length + ' dept' + (ds.length === 1 ? '' : 's'))}${chip('', ss.length + ' site' + (ss.length === 1 ? '' : 's'))}</div></div>`; }).join('');
+  return ph('Business units', 'Internal profit centres. CK and CKC stay the legal companies for visas, payroll and the HR Portal; a business unit is a layer on top, used for reports, costs and links between units.', ed ? `<div class="row no-print"><button class="btn out wi" data-a="uEdit" data-v="">Add a unit</button></div>` : '') +
+    (ed && unassignedDepts.length ? `<div class="banner"><span><b>${unassignedDepts.length}</b> department${unassignedDepts.length === 1 ? ' has' : 's have'} no business unit yet${sugg.length ? `; ${sugg.length} can be suggested from the department name` : ''}.</span>${sugg.length ? `<button class="btn tonal sm wi" data-a="uSugg" style="margin-left:auto">Review suggestions</button>` : ''}</div>` : '') +
+    `<div class="rgrid">${cards}</div>` +
+    `<div class="card mt"><h2>Departments</h2><p class="sub">Each department belongs to one unit. Staff follow their department automatically, so their cost and hours count for that unit.</p>
+      ${depts.length ? `<div class="tw"><table><thead><tr><th>Department</th><th class="num">Staff</th><th>Business unit</th></tr></thead><tbody>${depts.map(([k, d]) => `<tr><td><b style="font-weight:500">${esc(d.name)}</b></td><td class="num">${staffOf(d.name)}</td><td>${ed ? `<select class="inp wi" data-c="uDept" data-k="${k}" style="width:auto;min-width:220px">${unitOpts(d.unit)}</select>` : esc(unitName(d.unit))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No departments yet</b>They are created from the staff list in the Role library.</div>'}</div>` +
+    `<div class="card"><h2>Sites</h2><p class="sub">Optional. A site that belongs to a unit (for example the factory or warehouse) counts its supply and subcontract labour for that unit. Sites left unassigned count supply and subcontract labour as "Not assigned".</p>
+      ${ed && sites.some(([k, s]) => !s.unit) ? `<div class="row" style="gap:8px;margin-bottom:12px"><span class="mmeta">Set every unassigned site to</span><select class="inp" id="uSiteAll" style="width:auto;min-width:220px">${unitOpts('', 'choose a unit…')}</select><button class="btn tonal sm wi" data-a="uSiteAll">Apply</button></div>` : ''}
+      ${sites.length ? `<div class="tw"><table><thead><tr><th>Site</th><th>Project</th><th>Business unit</th></tr></thead><tbody>${sites.map(([k, s]) => `<tr><td><b style="font-weight:500">${esc(s.name)}</b></td><td>${esc(s.project || '')}</td><td>${ed ? `<select class="inp wi" data-c="uSite" data-k="${k}" style="width:auto;min-width:220px">${unitOpts(s.unit)}</select>` : esc(unitName(s.unit))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No sites yet</b></div>'}</div>` +
+    `<div class="card"><h2>How units are counted</h2><p class="sub" style="margin:0">CKC and CK staff count for the unit of their department, wherever they work. Supply and subcontract labour count for the unit of the site they work on. Shared services (HR, Finance, Admin, the CEO's office) are reported on their own and not charged to the profit centres; Finance can allocate them in the accounts. Revenue, internal prices between units and profit stay with Finance.</p></div>`;
+}
+function editUnit(k) {
+  const u = S.units[k] || { kind: 'profit' }; const heads = Object.entries(S.people).filter(([pk, p]) => p.cat === 'staff' && p.status !== 'left').sort(byName);
+  modal(k ? 'Edit business unit' : 'New business unit', [{ id: 'name', l: 'Name', v: u.name, full: 1 }, { id: 'kind', l: 'Type', t: 'sel', v: u.kind || 'profit', o: [['profit', 'Profit centre'], ['shared', 'Shared services (not charged to units)']] },
+    { id: 'head', l: 'Head of unit', t: 'sel', v: u.head || '', o: [['', '— not set —'], ...heads.map(([pk, p]) => [pk, p.name + (p.desig ? ' · ' + p.desig : '')])], full: 1 }], v => {
+    const n = (v.name || '').trim(); if (!n) { toast('Enter the unit name.'); return; }
+    if (Object.entries(S.units).some(([i, x]) => i !== k && String(x.name).toLowerCase() === n.toLowerCase())) { toast('That unit already exists.'); return; }
+    const rec = { name: n.slice(0, 80), kind: v.kind === 'shared' ? 'shared' : 'profit' }; if (v.head) rec.head = v.head;
+    set(ref(db, 'units/' + (k || push(ref(db, 'units')).key)), rec).then(() => { log(k ? 'Business unit edited' : 'Business unit added', rec.name); closeModal(); toast('Saved'); }).catch(fail);
+  }, k ? `<button class="btn danger wi" data-a="uDel" data-v="${k}" style="margin-right:auto">Delete unit</button>` : '');
+}
+function unitSuggestModal() {
+  const rows = Object.entries(S.depts || {}).filter(([k, d]) => !d.unit).map(([k, d]) => [k, d, suggestUnitFor(d.name)]).filter(x => x[2]);
+  if (!rows.length) { toast('No suggestions.'); return; }
+  modal('Suggested business units', rows.map(([k, d, u]) => ({ id: 'u_' + k, l: d.name, t: 'sel', v: u, o: [['', '— leave unassigned —'], ...unitsSorted().map(([uk, x]) => [uk, x.name])] })), v => {
+    const upd = {}; let n = 0; rows.forEach(([k]) => { const u = v['u_' + k]; if (u) { upd['depts/' + k + '/unit'] = u; n++; } });
+    if (!n) { closeModal(); return; }
+    update(ref(db), upd).then(() => { log('Departments assigned to business units', n + ' departments'); closeModal(); toast(n + ' departments assigned'); }).catch(fail);
   });
 }
 
@@ -1865,6 +1933,16 @@ const ACT = {
   addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
   rOpen: b => { S.view = 'roles'; S.rl.sel = b.dataset.v; S.rl.tab = 'resp'; draw(); window.scrollTo(0, 0); }, rBack: () => { S.rl.sel = ''; draw(); }, rTab: b => { S.rl.tab = b.dataset.v; draw(); }, rDept: b => { S.rl.dept = b.dataset.v; draw(); },
   dzOpen: () => { S.dz.open = true; S.dz.rows = null; draw(); }, dzClose: () => { S.dz.open = false; draw(); }, dzCreate,
+  uSeed: () => { const have = new Set(Object.values(S.units).map(u => String(u.name).toLowerCase())); const upd = {}; let n = 0; UNIT_SUGGEST.forEach(([nm2, kind]) => { if (have.has(nm2.toLowerCase())) return; upd['units/' + push(ref(db, 'units')).key] = { name: nm2, kind }; n++; });
+    if (!n) return; update(ref(db), upd).then(() => { log('Business units created', n + ' units'); toast(n + ' units created'); }).catch(fail); },
+  uEdit: b => editUnit(b.dataset.v), uSugg: unitSuggestModal,
+  uDel: b => { const k = b.dataset.v, u = S.units[k]; const nd = Object.values(S.depts).filter(d => d.unit === k).length, ns = Object.values(S.sites).filter(x => x.unit === k).length;
+    if (!confirm('Delete the unit "' + u.name + '"?' + (nd || ns ? ' ' + nd + ' departments and ' + ns + ' sites will become unassigned.' : ''))) return;
+    const upd = { ['units/' + k]: null }; Object.entries(S.depts).forEach(([dk, d]) => { if (d.unit === k) upd['depts/' + dk + '/unit'] = null; }); Object.entries(S.sites).forEach(([sk, x]) => { if (x.unit === k) upd['sites/' + sk + '/unit'] = null; });
+    update(ref(db), upd).then(() => { log('Business unit deleted', u.name); closeModal(); toast('Deleted'); }).catch(fail); },
+  uSiteAll: () => { const u = $('#uSiteAll').value; if (!u) { toast('Choose a unit.'); return; } const ks = Object.entries(S.sites).filter(([k, x]) => !x.unit).map(([k]) => k); if (!ks.length) return;
+    if (!confirm('Set ' + ks.length + ' unassigned sites to "' + S.units[u].name + '"?')) return; const upd = {}; ks.forEach(k => upd['sites/' + k + '/unit'] = u);
+    update(ref(db), upd).then(() => { log('Sites assigned to business unit', S.units[u].name + ' (' + ks.length + ')'); toast('Saved'); }).catch(fail); },
   crGo: b => { S.view = 'costs'; S.cr.month = b.dataset.v; draw(); window.scrollTo(0, 0); }, crLater: b => { S.crLater = b.dataset.v; draw(); },
   rFromTpl: pickTemplate, rEdit: b => editRole(b.dataset.v), kraEdit: b => editKra(b.dataset.v, b.dataset.i), kpiEdit: b => editKpi(b.dataset.v, b.dataset.i, b.dataset.j), kpiLibPick: b => kpiFromLib(b.dataset.v, b.dataset.i),
   kraDel: b => { const k = b.dataset.v, kr = krasOf(S.roles[k]); const x = kr[+b.dataset.i]; if (!confirm('Delete the KRA "' + x.n + '" and its KPIs?')) return; kr.splice(+b.dataset.i, 1); saveKras(k, kr, 'KRA deleted', x.n); },
@@ -1918,6 +1996,7 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
   else if (c === 'dashChart') { S.dash.chart = t.value; drawDashCharts(); }
   else if (c === 'ppQ') { S.pp.q = t.value; draw(); } else if (c === 'ppCat') { S.pp.cat = t.value; draw(); } else if (c === 'ppSite') { S.pp.site = t.value; draw(); }
   else if (c === 'importPeople') importPeople(t); else if (c === 'importRates') importRates(t);
+  else if (c === 'uDept' || c === 'uSite') { const col = c === 'uDept' ? 'depts' : 'sites', k = t.dataset.k, x = S[col][k] || {}; (t.value ? set(ref(db, col + '/' + k + '/unit'), t.value) : remove(ref(db, col + '/' + k + '/unit'))).then(() => { log((col === 'depts' ? 'Department' : 'Site') + ' business unit set', x.name + ': ' + unitName(t.value)); toast('Saved'); }).catch(fail); }
   else if (c === 'dzLab') { S.dz.lab = t.checked; S.dz.rows = null; draw(); } else if (c === 'dzInc') { S.dz.rows[+t.dataset.k].inc = t.checked; draw(); } else if (c === 'dzDept') { S.dz.rows[+t.dataset.k].dept = t.value; draw(); } else if (c === 'dzTpl') { S.dz.rows[+t.dataset.k].tpl = t.value; draw(); }
   else if (c === 'rlQ') { S.rl.q = t.value; draw(); } else if (c === 'klQ') { S.kl.q = t.value; draw(); } else if (c === 'klArea') { S.kl.area = t.value; draw(); }
   else if (c === 'asQ') { S.as.q = t.value; draw(); } else if (c === 'asDept') { S.as.dept = t.value; draw(); } else if (c === 'asCat') { S.as.cat = t.value; draw(); }
