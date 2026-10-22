@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.5.6. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.5.7. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -1621,7 +1621,7 @@ const TPL_MATCH = [[/head of (unit|business unit)|unit head|\bbu head/, 'buh'], 
   [/accountant|accounts/, 'acc'], [/\bhr\b|human resources/, 'hr'], [/time ?keeper/, 'tk']];
 const tplFor = d => { const x = String(d || '').toLowerCase(); const m = TPL_MATCH.find(([rx]) => rx.test(x)); return m ? m[1] : ''; };
 S.dz = { open: false, lab: false, rows: null };
-const dKey = d => String(d || '').trim().toLowerCase();
+const dKey = d => String(d || '').replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000]/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
 function roleForDesig(d) { const k = dKey(d); if (!k) return null; const byName = findByName('roles', String(d).trim()); if (byName) return byName;
   const hit = Object.entries(S.roles || {}).find(([rk, r]) => arr(r.desigs).some(x => dKey(x) === k)); return hit ? hit[0] : null; }
 // Existing role a designation should probably join: one made from the same template
@@ -1673,6 +1673,9 @@ async function dzCreate() {
 }
 // People who can be a head: all active CK / CKC people (white collar first), so a category mismatch never hides someone
 function headCandidates() { return Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort((a, b) => (a[1].cat !== 'staff') - (b[1].cat !== 'staff') || String(a[1].name || '').localeCompare(String(b[1].name || ''))); }
+// Forgiving text search: ignores case, punctuation and odd spaces (for example non-breaking spaces from Excel); every word typed must appear
+const normTxt = t => String(t || '').toLowerCase().replace(/[\u00a0\u2000-\u200b\u202f\u205f\u3000]/g, ' ').replace(/[\u2010-\u2015\-–—\/\\·,.;:()&+_'"]/g, ' ').replace(/\s+/g, ' ').trim();
+const matchQ = (text, q) => { const w = normTxt(q).split(' ').filter(Boolean); if (!w.length) return true; const t = normTxt(text); return w.every(x => t.includes(x)); };
 // ── Role library
 function vRoles() {
   setTimeout(syncDepts, 0); setTimeout(syncRoleAssign, 0);
@@ -1680,7 +1683,7 @@ function vRoles() {
   S.rl.sel = '';
   const ed = canW(); const deptsInUse = [...new Set(Object.values(S.people).filter(p => p.cat !== 'supply' && p.dept).map(p => p.dept.trim()))];
   const missingDepts = deptsInUse.filter(n => !findByName('depts', n));
-  const q = S.rl.q.toLowerCase(); const list = rolesSorted().filter(([k, r]) => (!S.rl.dept || r.dept === S.rl.dept) && (!q || (r.name + ' ' + (r.purpose || '')).toLowerCase().includes(q)));
+  const q = S.rl.q.toLowerCase(); const list = rolesSorted().filter(([k, r]) => (!S.rl.dept || r.dept === S.rl.dept) && (!q || matchQ(r.name + ' ' + (r.purpose || '') + ' ' + arr(r.desigs).join(' '), q)));
   const cnt = d => Object.values(S.roles).filter(r => r.dept === d).length;
   const card = ([k, r]) => { const n = peopleInRole(k).length, kr = krasOf(r), lk = linksOf(k).length;
     return `<button class="rcard" data-a="rOpen" data-v="${k}"><div class="mmeta">${esc(deptName(r.dept))}</div><div style="font:500 16px var(--f);margin:2px 0 6px">${esc(r.name)}</div><div class="rpurp">${esc(r.purpose || 'No purpose written yet.')}</div>
@@ -1688,7 +1691,7 @@ function vRoles() {
   return ph('Role library', 'What each role is for, what it is responsible for, what it decides and how its results are measured. Written once, used for everyone in the role.',
       ed ? `<div class="row no-print"><button class="btn tonal wi" data-a="rFromTpl">Add from a template</button><button class="btn out wi" data-a="rEdit" data-v="">Add blank role</button></div>` : '') +
     vDesigPanel() + (!ed && missingDepts.length ? `<div class="banner">${missingDepts.length} department${missingDepts.length === 1 ? '' : 's'} from the staff list will appear once a super user opens this page.</div>` : '') +
-    `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search roles" data-c="rlQ" value="${esc(S.rl.q)}" style="flex:1;min-width:200px">
+    `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search roles, then press Enter" data-c="rlQ" value="${esc(S.rl.q)}" style="flex:1;min-width:200px">
       <div class="people" style="padding:0;margin:0"><button data-a="rDept" data-v="" aria-pressed="${!S.rl.dept}">All · ${Object.keys(S.roles).length}</button>${Object.entries(S.depts).sort(byName).filter(([k]) => cnt(k)).map(([k, d]) => `<button data-a="rDept" data-v="${k}" aria-pressed="${S.rl.dept === k}">${esc(d.name)} · ${cnt(k)}</button>`).join('')}</div></div></div>` +
     (list.length ? `<div class="rgrid">${list.map(card).join('')}</div>` : `<div class="card"><div class="empty"><b>${Object.keys(S.roles).length ? 'No roles match' : 'No roles yet'}</b>${ed && !Object.keys(S.roles).length ? 'Start with "Add from a template". Ready-made roles cover projects, design, commercial, procurement, MEP, HSE, finance and HR. Edit them to fit CK and CKC.' : ''}</div></div>`) +
     (ed ? vDepts() : '');
@@ -1789,7 +1792,7 @@ function kpiFromLib(k, i, n) {
 function vAssign() {
   setTimeout(syncDepts, 0); setTimeout(syncRoleAssign, 0);
   const ed = canW(); const q = S.as.q.toLowerCase();
-  const ppl = Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && (!S.as.cat || p.cat === S.as.cat) && (!S.as.dept || String(p.dept || '').trim().toLowerCase() === String(deptName(S.as.dept)).toLowerCase()) && (!q || (p.name + ' ' + (p.desig || '') + ' ' + (p.empId || '')).toLowerCase().includes(q))).sort(byName);
+  const ppl = Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && (!S.as.cat || p.cat === S.as.cat) && (!S.as.dept || String(p.dept || '').trim().toLowerCase() === String(deptName(S.as.dept)).toLowerCase()) && (!q || matchQ(p.name + ' ' + (p.desig || '') + ' ' + (p.empId || ''), q))).sort(byName);
   const desigs = {}; ppl.forEach(([k, p]) => { if (p.desig) desigs[p.desig] = (desigs[p.desig] || 0) + 1; });
   const noRole = Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && p.cat === 'staff' && !Object.values(assignOf(k)).some(a => a.lvl === 'main')).length;
   const row = ([pid, p]) => { const a = assignOf(pid); const ents = Object.entries(a); const main = ents.find(([r, x]) => x.lvl === 'main'); const subs = ents.filter(([r, x]) => x.lvl === 'sub'); const tot = ents.reduce((s, [r, x]) => s + Number(x.pct || 0), 0);
@@ -1803,7 +1806,7 @@ function vAssign() {
     (ed ? `<div class="card"><h2>Assign many at once</h2><p class="sub">Give everyone with the same designation the same main role. People who already have a main role are left as they are.</p>
       <div class="row" style="gap:8px"><select class="inp" id="bkDesig" style="width:auto;min-width:220px"><option value="">Designation…</option>${Object.entries(desigs).sort().map(([d, n]) => `<option value="${esc(d)}">${esc(d)} (${n})</option>`).join('')}</select>
       <select class="inp" id="bkRole" style="width:auto;min-width:220px">${roleOpts('', 'Main role…')}</select><button class="btn tonal wi" data-a="asBulk">Assign</button></div></div>` : '') +
-    `<div class="card"><div class="row" style="gap:8px;margin-bottom:12px"><input class="inp" placeholder="Search name, ID or designation" data-c="asQ" value="${esc(S.as.q)}" style="flex:1;min-width:200px">
+    `<div class="card"><div class="row" style="gap:8px;margin-bottom:12px"><input class="inp" placeholder="Search name, ID or designation, then press Enter" data-c="asQ" value="${esc(S.as.q)}" style="flex:1;min-width:200px">
       <select class="inp" data-c="asDept" style="width:auto"><option value="">All departments</option>${deptOpts(S.as.dept)}</select>
       <select class="inp" data-c="asCat" style="width:auto">${[['staff', 'White collar (CKC staff)'], ['labour', 'Labour'], ['', 'Everyone']].map(([k, l]) => `<option value="${k}" ${S.as.cat === k ? 'selected' : ''}>${l}</option>`).join('')}</select>
       ${noRole ? chip('warn', noRole + ' staff without a main role') : chip('good', 'All staff have a main role')}</div>
@@ -1846,7 +1849,7 @@ function editLink(k, fromRole) {
 // ── KPI library
 function vKpiLib() {
   const lib = kpiLibrary(); const q = S.kl.q.toLowerCase(); const areas = [...new Set(lib.map(p => p.area))].sort();
-  const list = lib.map((p, i) => [i, p]).filter(([i, p]) => (!S.kl.area || p.area === S.kl.area) && (!q || (p.n + ' ' + (p.src || '') + ' ' + (p.kra || '')).toLowerCase().includes(q)));
+  const list = lib.map((p, i) => [i, p]).filter(([i, p]) => (!S.kl.area || p.area === S.kl.area) && (!q || matchQ(p.n + ' ' + (p.src || '') + ' ' + (p.kra || ''), q)));
   return ph('KPI library', 'Ready-made measures with their data source and link to money. Each one measures a result the person can influence, not a count of activity. Add any of them to a role and set the target with the department head.') +
     `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search KPIs" data-c="klQ" value="${esc(S.kl.q)}" style="flex:1;min-width:200px"><select class="inp" data-c="klArea" style="width:auto"><option value="">All areas</option>${areas.map(a => `<option ${S.kl.area === a ? 'selected' : ''}>${esc(a)}</option>`).join('')}</select><span class="mmeta">${list.length} KPIs · ${lib.filter(p => p.auto).length} calculated by PEH</span></div></div>
     <div class="card"><div class="tw"><table><thead><tr><th>KPI</th><th>Area</th><th>Unit · better</th><th>How often</th><th>Data source</th><th>Money link</th><th></th></tr></thead><tbody>${list.map(([i, p]) => `<tr><td><b style="font-weight:500">${esc(p.n)}</b>${p.kra ? `<div class="mmeta">KRA: ${esc(p.kra)}</div>` : ''}${p.auto ? '<div style="margin-top:4px">' + autoChip(p.auto) + '</div>' : ''}</td><td>${esc(p.area || '')}</td><td>${esc(p.u)} · ${p.low ? 'lower' : 'higher'}</td><td>${esc(p.freq)}</td><td>${esc(p.src)}</td><td>${esc(p.ft)}</td><td>${canW() && Object.keys(S.roles).length ? `<button class="btn text sm wi" data-a="klAdd" data-v="${i}">Add to a role</button>` : ''}</td></tr>`).join('')}</tbody></table></div></div>`;
