@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.5.7. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.6. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -428,7 +428,7 @@ function draw() {
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'dMerge', 'dsMove', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'dMerge', 'dsMove', 'rwbApply', 'closeMonth', 'addDelay']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -1689,7 +1689,8 @@ function vRoles() {
     return `<button class="rcard" data-a="rOpen" data-v="${k}"><div class="mmeta">${esc(deptName(r.dept))}</div><div style="font:500 16px var(--f);margin:2px 0 6px">${esc(r.name)}</div><div class="rpurp">${esc(r.purpose || 'No purpose written yet.')}</div>
       <div class="row" style="gap:6px;margin-top:10px">${chip(n ? 'good' : '', n + (n === 1 ? ' person' : ' people'))}${chip(kr.length ? 'pri' : 'warn', kr.length + ' KRA' + (kr.length === 1 ? '' : 's'))}${lk ? chip('', lk + ' link' + (lk === 1 ? '' : 's')) : ''}</div></button>`; };
   return ph('Role library', 'What each role is for, what it is responsible for, what it decides and how its results are measured. Written once, used for everyone in the role.',
-      ed ? `<div class="row no-print"><button class="btn tonal wi" data-a="rFromTpl">Add from a template</button><button class="btn out wi" data-a="rEdit" data-v="">Add blank role</button></div>` : '') +
+      ed ? `<div class="row no-print"><button class="btn tonal wi" data-a="rFromTpl">Add from a template</button><button class="btn out wi" data-a="rEdit" data-v="">Add blank role</button></div><div class="row no-print" style="margin-top:8px;justify-content:flex-end"><button class="btn text sm wi" data-a="rwbExport">Download roles workbook</button><label class="btn text sm wi" style="position:relative">Upload roles workbook<input type="file" accept=".xlsx,.xls" data-c="rwbFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label></div>` : '') +
+    (S.rimp && ed ? vRwbReview() : '') +
     vDesigPanel() + (!ed && missingDepts.length ? `<div class="banner">${missingDepts.length} department${missingDepts.length === 1 ? '' : 's'} from the staff list will appear once a super user opens this page.</div>` : '') +
     `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search roles, then press Enter" data-c="rlQ" value="${esc(S.rl.q)}" style="flex:1;min-width:200px">
       <div class="people" style="padding:0;margin:0"><button data-a="rDept" data-v="" aria-pressed="${!S.rl.dept}">All · ${Object.keys(S.roles).length}</button>${Object.entries(S.depts).sort(byName).filter(([k]) => cnt(k)).map(([k, d]) => `<button data-a="rDept" data-v="${k}" aria-pressed="${S.rl.dept === k}">${esc(d.name)} · ${cnt(k)}</button>`).join('')}</div></div></div>` +
@@ -1925,6 +1926,101 @@ function unitSuggestModal() {
   });
 }
 
+
+// ══ Roles workbook: download every role and every person's roles as one Excel file, change many at once, upload with a review ══
+const RWB_PEOPLE = ['Emp ID', 'Name', 'Designation', 'Department', 'Category', 'Main role', 'Main %', 'Sub-role 1', 'Sub-role 1 %', 'Sub-role 2', 'Sub-role 2 %', 'Sub-role 3', 'Sub-role 3 %'];
+const RWB_ROLES = ['Role name', 'New name (leave blank to keep)', 'Department', 'Purpose', 'Responsible for', 'Decides alone', 'Needs approval from', 'Linked designations', 'KRAs from template (only if the role has none)', 'Delete (yes)', 'People now'];
+const rwbSplit = v => String(v || '').split(/\r?\n|\s*\|\s*/).map(t => t.trim()).filter(Boolean);
+async function rwbExport() {
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel tools. Check the internet connection.'); return; }
+  const X = window.XLSX; const rn = id => (S.roles[id] || {}).name || '';
+  const ppl = Object.entries(S.people).filter(([k, p]) => p.status !== 'left' && p.cat !== 'supply').sort((a, b) => String(a[1].dept || '').localeCompare(String(b[1].dept || '')) || String(a[1].name || '').localeCompare(String(b[1].name || '')));
+  const P = [RWB_PEOPLE].concat(ppl.map(([k, p]) => { const a = Object.entries(assignOf(k)); const m = a.find(([r, x]) => x.lvl === 'main'); const subs = a.filter(([r, x]) => x.lvl === 'sub');
+    const row = [p.empId || '', p.name || '', p.desig || '', p.dept || '', p.cat === 'staff' ? 'White collar' : 'Labour', m ? rn(m[0]) : '', m ? Number(m[1].pct || 0) : ''];
+    for (let i = 0; i < 3; i++) row.push(subs[i] ? rn(subs[i][0]) : '', subs[i] ? Number(subs[i][1].pct || 0) : ''); return row; }));
+  const R = [RWB_ROLES].concat(rolesSorted().map(([k, r]) => [r.name, '', deptName(r.dept), r.purpose || '', lines(r.resp).join('\n'), lines(r.decide).join('\n'), lines(r.approve).join('\n'), arr(r.desigs).join('\n'), '', '', peopleInRole(k).length]));
+  const Lists = [['Roles', 'Departments', 'Templates']]; const rl = rolesSorted().map(([k, r]) => r.name), dl = Object.values(S.depts).map(d => d.name).sort(), tl = TPL_ROLES.map(t => t.name);
+  for (let i = 0; i < Math.max(rl.length, dl.length, tl.length); i++) Lists.push([rl[i] || '', dl[i] || '', tl[i] || '']);
+  const help = [['How to use this workbook'], [''], ['People sheet: change Main role, Main %, Sub-roles and their %. Shares for one person should add up to 100.'], ['Role names must match a role on the Roles sheet (existing name or its new name). Emp ID identifies the person: do not change it.'],
+    [''], ['Roles sheet: to rename, fill "New name". To add a role, add a row with its name and Department. To remove a role, write yes under Delete (only removed if nobody is left in it).'],
+    ['Several lines in one cell (Responsible for, Decides alone, Needs approval from, Linked designations): put each item on its own line (Alt+Enter) or separate with |.'],
+    ['Linked designations: staff with these job titles get the role as their main role automatically. Leaving the cell empty keeps the current links.'], ['KRAs from template: a template name from the Lists sheet; used only when the role has no KRAs yet.'],
+    [''], ['Upload the file back in PEH: Role library > Upload roles workbook. Nothing changes until you review and press Apply.'], ['This file holds names, designations and roles only. No salaries.']];
+  const wb = X.utils.book_new();
+  const add = (aoa, name, widths) => { const ws = X.utils.aoa_to_sheet(aoa); ws['!cols'] = widths.map(w => ({ wch: w })); X.utils.book_append_sheet(wb, ws, name); };
+  add(help, 'Read me', [120]); add(P, 'People', [10, 28, 30, 22, 13, 32, 8, 28, 8, 28, 8, 28, 8]); add(R, 'Roles', [32, 26, 22, 50, 50, 36, 36, 34, 30, 10, 10]); add(Lists, 'Lists', [36, 28, 40]);
+  X.writeFile(wb, 'PEH_Roles_Workbook_' + new Date().toISOString().slice(0, 10) + '.xlsx'); log('Roles workbook downloaded', ppl.length + ' people, ' + rl.length + ' roles');
+}
+S.rimp = null;
+async function rwbFile(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; inp.value = '';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader.'); return; }
+  let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' }); } catch (e) { toast('Could not read that file.'); return; }
+  const sheet = want => { for (const n of wb.SheetNames) { const rows = window.XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' }); const hi = rows.findIndex(r => r.map(c => String(c).trim().toLowerCase()).includes(want)); if (hi >= 0) return { hd: rows[hi].map(c => String(c).trim().toLowerCase()), rows: rows.slice(hi + 1) }; } return null; };
+  const PS = sheet('main role'), RS = sheet('role name');
+  if (!PS && !RS) { toast('This is not a PEH roles workbook (no People or Roles sheet).'); return; }
+  const W = [], nk = t => normTxt(t);
+  // ---------- roles ----------
+  const byName = {}; Object.entries(S.roles).forEach(([k, r]) => { byName[nk(r.name)] = k; });
+  const finalName = {}; Object.entries(S.roles).forEach(([k, r]) => { finalName[k] = r.name; });
+  const rUpd = {}, rNew = [], rDel = [], txt = new Set(), ren = [];
+  if (RS) { const c = n => RS.hd.indexOf(n); const ci = { name: c('role name'), nn: RS.hd.findIndex(h => h.startsWith('new name')), dept: c('department'), pur: c('purpose'), resp: c('responsible for'), dec: c('decides alone'), app: c('needs approval from'), des: c('linked designations'), tpl: RS.hd.findIndex(h => h.startsWith('kras from template')), del: RS.hd.findIndex(h => h.startsWith('delete')) };
+    const g = (r, k) => ci[k] >= 0 ? String(r[ci[k]] == null ? '' : r[ci[k]]).trim() : '';
+    RS.rows.forEach((r, i) => { const name = g(r, 'name'); if (!name) return; const id = byName[nk(name)]; const nn = g(r, 'nn'); const dn = g(r, 'dept'); const dId = dn ? findByName('depts', dn) : '';
+      if (dn && !dId) W.push('Roles row ' + (i + 2) + ': department "' + dn + '" not found; kept as it was.');
+      const tn = g(r, 'tpl'); const t = tn ? TPL_ROLES.find(x => nk(x.name) === nk(tn) || x.id === tn) : null; if (tn && !t) W.push('Roles row ' + (i + 2) + ': template "' + tn + '" not found.');
+      const body = {}; if (g(r, 'pur')) body.purpose = g(r, 'pur').slice(0, 600); ['resp', 'dec', 'app'].forEach((k, j) => { if (g(r, k)) body[['resp', 'decide', 'approve'][j]] = rwbSplit(g(r, k)); }); if (ci.des >= 0 && g(r, 'des')) body.desigs = rwbSplit(g(r, 'des'));
+      if (id) { const cur = S.roles[id]; const u = {};
+        if (nn && nn !== cur.name) { u.name = nn.slice(0, 120); ren.push(cur.name + ' → ' + nn); finalName[id] = nn; }
+        if (dId && dId !== cur.dept) u.dept = dId;
+        Object.entries(body).forEach(([k, v]) => { if (JSON.stringify(v) !== JSON.stringify(k === 'purpose' ? (cur.purpose || '') : arr(cur[k]))) { u[k] = v; if (k !== 'desigs') txt.add(id); } });
+        if (t && !krasOf(cur).length) { u.kras = t.kras.map(x => ({ n: x.n, w: x.w, kpis: x.kpis.map(p => Object.assign({}, p)) })); u.tpl = cur.tpl || t.id; txt.add(id); }
+        if (/^y/i.test(g(r, 'del'))) rDel.push(id);
+        if (Object.keys(u).length) rUpd[id] = u; }
+      else { if (!dId) { W.push('Roles row ' + (i + 2) + ': new role "' + name + '" needs a Department that exists; skipped.'); return; }
+        const nid = push(ref(db, 'roles')).key; const rec = Object.assign({ name: (nn || name).slice(0, 120), dept: dId, purpose: '', resp: [], decide: [], approve: [] }, body);
+        if (t) { rec.tpl = t.id; rec.kras = t.kras.map(x => ({ n: x.n, w: x.w, kpis: x.kpis.map(p => Object.assign({}, p)) })); }
+        rNew.push([nid, rec]); finalName[nid] = rec.name; byName[nk(name)] = nid; } }); }
+  const roleId = name => { const n = nk(name); if (!n) return ''; const hit = Object.entries(finalName).find(([k, v]) => nk(v) === n); return hit ? hit[0] : (byName[n] || ''); };
+  // ---------- people ----------
+  const aSet = {}; let pSame = 0; const byEmp = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.empId) byEmp[nk(p.empId)] = k; });
+  if (PS) { const c = n => PS.hd.indexOf(n); const g = (r, n) => { const i = c(n); return i >= 0 ? String(r[i] == null ? '' : r[i]).trim() : ''; };
+    PS.rows.forEach((r, i) => { const eid = g(r, 'emp id'), nm = g(r, 'name'); if (!eid && !nm) return; const pk = byEmp[nk(eid)]; if (!pk) { W.push('People row ' + (i + 2) + ': Emp ID "' + eid + '" (' + nm + ') is not in PEH; skipped.'); return; }
+      const rec = {}; const put = (rName, pc, lvl) => { if (!rName) return true; const rid = roleId(rName); if (!rid) { W.push('People row ' + (i + 2) + ' (' + nm + '): role "' + rName + '" does not exist; this line was left as it was.'); return false; }
+        const v = num(pc); rec[rid] = { lvl, pct: v == null || Number.isNaN(v) ? (lvl === 'main' ? 100 : 0) : Math.max(0, Math.min(100, Math.round(v))) }; return true; };
+      if (!put(g(r, 'main role'), g(r, 'main %'), 'main')) return; for (let s = 1; s <= 3; s++) put(g(r, 'sub-role ' + s), g(r, 'sub-role ' + s + ' %'), 'sub');
+      const tot = Object.values(rec).reduce((t, x) => t + x.pct, 0); if (Object.keys(rec).length && tot !== 100) W.push(nm + ': shares add up to ' + tot + '%, not 100%.');
+      const cur = assignOf(pk); const same = JSON.stringify(Object.keys(rec).sort().map(k => [k, rec[k].lvl, rec[k].pct])) === JSON.stringify(Object.keys(cur).sort().map(k => [k, cur[k].lvl, Number(cur[k].pct)]));
+      if (same) pSame++; else aSet[pk] = rec; }); }
+  // ---------- deletions: only when nobody is left in the role ----------
+  const finalHolds = rid => Object.entries(S.people).some(([pk]) => { const a = aSet[pk] || assignOf(pk); return a && a[rid]; });
+  const delOk = [], delNo = []; rDel.forEach(id => (finalHolds(id) ? delNo : delOk).push(id)); delNo.forEach(id => W.push('Not deleted: "' + S.roles[id].name + '" still has people in it.'));
+  S.rimp = { file: f.name, rUpd, rNew, delOk, aSet, W, ren, txt: [...txt].filter(id => !delOk.includes(id)).length, pSame }; draw(); window.scrollTo(0, 0);
+}
+function vRwbReview() {
+  const I = S.rimp; const nUpd = Object.keys(I.rUpd).filter(k => !I.delOk.includes(k)).length, nP = Object.keys(I.aSet).length;
+  const tile = (l, v, s) => `<div class="tile"><div class="l">${l}</div><div class="v" style="font-size:26px">${v}</div><div class="s">${s}</div></div>`;
+  const pList = Object.entries(I.aSet).slice(0, 40).map(([pk, rec]) => { const p = S.people[pk]; const nm = id => (I.rNew.find(x => x[0] === id) || [0, { name: (I.rUpd[id] && I.rUpd[id].name) || (S.roles[id] || {}).name }])[1].name;
+    return `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.desig || '')}</div></td><td>${Object.entries(rec).sort((a, b) => (a[1].lvl === 'main' ? -1 : 1)).map(([id, x]) => esc(nm(id)) + ' ' + x.pct + '%' + (x.lvl === 'sub' ? ' <span class="mmeta">(sub)</span>' : '')).join('<br>') || '<span class="mmeta">no roles</span>'}</td></tr>`; }).join('');
+  return `<div class="card"><div class="row" style="justify-content:space-between"><h2>Review roles workbook · ${esc(I.file)}</h2><button class="btn text" data-a="rwbCancel">Cancel</button></div><p class="sub">Nothing has been changed yet.</p>
+    <div class="grid g4" style="margin-bottom:12px">${tile('Roles renamed', I.ren.length, '')}${tile('Roles created', I.rNew.length, '')}${tile('Roles updated', nUpd, I.txt + ' with new text or KRAs')}${tile('People changed', nP, I.pSame + ' unchanged')}</div>
+    ${I.delOk.length ? `<p class="note">Roles to delete (nobody left in them): ${I.delOk.map(id => esc(S.roles[id].name)).join(', ')}</p>` : ''}
+    ${I.ren.length ? `<p class="note">Renames: ${I.ren.map(esc).join(' · ')}</p>` : ''}
+    ${I.rNew.length ? `<p class="note">New roles: ${I.rNew.map(x => esc(x[1].name)).join(', ')}</p>` : ''}
+    ${I.W.length ? `<div class="banner warn" style="align-items:flex-start"><div><b style="font-weight:500">${I.W.length} thing${I.W.length === 1 ? '' : 's'} to check:</b><br>${I.W.slice(0, 25).map(esc).join('<br>')}${I.W.length > 25 ? '<br>…and ' + (I.W.length - 25) + ' more' : ''}</div></div>` : ''}
+    ${nP ? `<div class="tw" style="max-height:420px;overflow:auto"><table><thead><tr><th>Person</th><th>Roles after the change</th></tr></thead><tbody>${pList}</tbody></table></div>${nP > 40 ? `<p class="note">Showing 40 of ${nP}.</p>` : ''}` : ''}
+    <div class="row mt"><button class="btn fill wi" data-a="rwbApply" ${!(I.ren.length || I.rNew.length || nUpd || nP || I.delOk.length) ? 'disabled' : ''}>Apply all changes</button></div></div>`;
+}
+async function rwbApply() {
+  const I = S.rimp; if (!I) return; const upd = {};
+  I.rNew.forEach(([id, rec]) => { upd['roles/' + id] = rec; });
+  Object.entries(I.rUpd).forEach(([id, u]) => { if (I.delOk.includes(id)) return; Object.entries(u).forEach(([k, v]) => { upd['roles/' + id + '/' + k] = v; }); });
+  Object.entries(I.aSet).forEach(([pk, rec]) => { upd['rassign/' + pk] = Object.keys(rec).length ? rec : null; });
+  I.delOk.forEach(id => { upd['roles/' + id] = null; Object.entries(S.links).forEach(([lk, l]) => { if (l.from === id || l.to === id) upd['links/' + lk] = null; }); });
+  if (!confirm('Apply all changes from the workbook?')) return;
+  try { await update(ref(db), upd); log('Roles workbook applied', I.ren.length + ' renamed, ' + I.rNew.length + ' created, ' + Object.keys(I.aSet).length + ' people changed, ' + I.delOk.length + ' deleted'); toast('Applied'); S.rimp = null; draw(); } catch (e) { fail(e); }
+}
+
 // ── events
 const ACT = {
   signin: async () => {
@@ -1973,6 +2069,7 @@ const ACT = {
   addSub: () => { const k = $('#addS').value; if (!k) return; S.reg.draft.sub[k] = 0; S.reg.edited = true; draw(); },
   rOpen: b => { S.view = 'roles'; S.rl.sel = b.dataset.v; S.rl.tab = 'resp'; draw(); window.scrollTo(0, 0); }, rBack: () => { S.rl.sel = ''; draw(); }, rTab: b => { S.rl.tab = b.dataset.v; draw(); }, rDept: b => { S.rl.dept = b.dataset.v; draw(); },
   dzOpen: () => { S.dz.open = true; S.dz.rows = null; draw(); }, dzClose: () => { S.dz.open = false; draw(); }, dzCreate,
+  rwbExport, rwbApply, rwbCancel: () => { S.rimp = null; draw(); },
   dsMove: b => { const rk = b.dataset.v, r = S.roles[rk]; const list = arr(r.desigs); const d = list[+b.dataset.i]; if (!d) return;
     const ppl = Object.entries(S.people).filter(([pk, p]) => p.status !== 'left' && p.cat !== 'supply' && dKey(p.desig) === dKey(d));
     const topDept = (() => { const c = {}; ppl.forEach(([pk, p]) => { const id = findByName('depts', String(p.dept || '').trim()); if (id) c[id] = (c[id] || 0) + 1; }); const t = Object.entries(c).sort((a, b) => b[1] - a[1])[0]; return t ? t[0] : r.dept; })();
@@ -2070,6 +2167,7 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
   else if (c === 'asPct') { const pid = t.dataset.k, r = t.dataset.r, v = num(t.value); if (v == null || Number.isNaN(v) || v < 0 || v > 100) { toast('Share must be 0 to 100.'); draw(); return; } const a = JSON.parse(JSON.stringify(assignOf(pid))); if (!a[r]) return; a[r].pct = v; saveAssign(pid, a, (S.roles[r] || {}).name + ' share ' + v + '%'); }
   else if (c === 'hrFile') hrFile(t);
   else if (c === 'costFile') costFile(t);
+  else if (c === 'rwbFile') rwbFile(t);
   else if (c === 'ciMonth') { S.cimp.M = t.value; draw(); } else if (c === 'ciPick') { S.cimp.rows[+t.dataset.k].to = t.value; draw(); }
   else if (c === 'impSite') { S.imp.sites[+t.dataset.k].to = t.value; draw(); }
   else if (c === 'impTrade') { S.imp.trades[+t.dataset.k][t.dataset.f] = t.value; draw(); }
