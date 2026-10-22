@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.6. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.7. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -306,7 +306,7 @@ function status(m, e, ptype) {
 const S = { user: null, acc: null, view: '', sel: '', tab: 'results', ptype: 'W', pkey: nowWeek(), dmonth: new Date().toISOString().slice(0, 7),
   owners: {}, measures: {}, entries: {}, locks: {}, settings: {}, delays: {}, users: {}, access: {}, audit: {}, dirty: false,
   people: {}, peopleBySite: {}, sites: {}, trades: {}, companies: {}, rates: {}, crates: {}, closed: {},
-  depts: {}, roles: {}, rassign: {}, links: {}, units: {} };
+  depts: {}, roles: {}, rassign: {}, links: {}, units: {}, rcheck: {}, mm: { open: false } };
 let db, auth, subs = [];
 const isAdmin = () => S.acc && S.acc.role === 'admin';
 const isCeo = () => S.acc && S.acc.role === 'ceo';
@@ -358,7 +358,7 @@ function startData() {
   }
   watch('owners', v => S.owners = v);
   watch('depts', v => S.depts = v); watch('units', v => S.units = v); watch('roles', v => S.roles = v); watch('links', v => S.links = v);
-  if (isAdmin() || isCeo()) watch('rassign', v => S.rassign = v);
+  if (isAdmin() || isCeo()) { watch('rassign', v => S.rassign = v); watch('rcheck', v => S.rcheck = v); }
   watch('locks', v => S.locks = v);
   watch('delays', v => S.delays = v);
   if (isAdmin() || isCeo() || isFin()) { watch('measures', v => S.measures = v); watch('entries', v => S.entries = v); watch('people', v => S.people = v); watch('rates', v => S.rates = v); watch('crates', v => S.crates = v); }
@@ -421,14 +421,15 @@ function draw() {
   $('#roleChip').textContent = roleTxt; const av = $('#avatar'); av.textContent = ini((S.user.email || '').split('@')[0].replace(/[._-]/g, ' ')); av.title = S.user.email;
   const pend = Object.keys(S.users).filter(u => !S.access[u]).length;
   const unconf = finRows().filter(r => !r.e.fConf).length;
+  const mmN = seesAssign() ? roleMismatches().length : 0;
   $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
-    `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
+    `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'assign' && mmN ? `<span class="count">${mmN}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
   const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib }[S.view] || (isTK() ? vRegister : vCards);
   $('#main').innerHTML = `<div class="page">${costReminder()}${V()}</div>`;
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
-const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'dMerge', 'dsMove', 'rwbApply', 'closeMonth', 'addDelay']);
+const WRITE = new Set(['saveEntry', 'lock', 'editOwner', 'delOwner', 'editMeasure', 'delMeasure', 'saveAccess', 'dropAccess', 'saveCauses', 'saveReg', 'markAll', 'addWorker', 'addSub', 'regDrop', 'editPerson', 'editMaster', 'saveRates', 'saveCrates', 'saveHours', 'doImport', 'doCostImport', 'rFromTpl', 'rEdit', 'rDel', 'mkDepts', 'dEdit', 'kraEdit', 'kraDel', 'kpiEdit', 'kpiDel', 'kpiLibPick', 'asBulk', 'asDrop', 'lEdit', 'lDel', 'lSugg', 'klAdd', 'dzOpen', 'dzCreate', 'crGo', 'uSeed', 'uEdit', 'uDel', 'uSugg', 'uSiteAll', 'dMerge', 'dsMove', 'rwbApply', 'closeMonth', 'addDelay', 'mmAccept', 'mmKeep', 'mmKeepAll', 'mmLink']);
 const ph = (t, p, right = '') => `<div class="ph"><div><h1>${t}</h1>${p ? `<p>${p}</p>` : ''}</div>${right}</div>`;
 const chip = (c, t) => `<span class="chip ${c}">${esc(t)}</span>`;
 const ownerLine = (o, x, sub) => `<div class="ownerline"><span class="av2" style="background:${avc(o)}">${esc(ini(x.name))}</span><span><b>${esc(x.name)}</b><small>${esc(sub == null ? x.title : sub)}</small></span></div>`;
@@ -677,7 +678,7 @@ function saveAccess(u) {
   set(ref(db, 'access/' + u), rec).then(() => { log('Access set', rec.email + ' → ' + role + (ro && role === 'admin' ? ' (view only)' : '') + (fin ? ' + finance' : '') + (rec.ownerId ? ' · ' + (S.owners[rec.ownerId] || {}).name : '') + (role === 'timekeeper' ? ' · ' + Object.keys(sites).map(k => nm('sites', k)).join(', ') : '')); toast('Access saved'); }).catch(fail);
 }
 function exportBackup() {
-  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
+  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units', 'rcheck'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
     const blob = new Blob([JSON.stringify(Object.fromEntries(r), null, 1)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PEH-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     log('Backup downloaded', ''); }).catch(fail);
@@ -1803,7 +1804,7 @@ function vAssign() {
         ${ed && main ? `<select class="inp wi" data-c="asSub" data-k="${pid}" style="width:auto;padding:6px 8px;font-size:13px"><option value="">+ sub-role</option>${roleOpts('', '').replace(new RegExp('<option value="(' + ents.map(e => e[0]).join('|') + ')"[^>]*>[^<]*</option>', 'g'), '')}</select>` : ''}</td>
       <td>${ents.length ? chip(tot === 100 ? 'good' : 'warn', tot + '%') : ''}</td></tr>`; };
   return ph('Who does what', 'Each person has one main role and any sub-roles, with the share of their time on each. Shares should add up to 100%. Their scorecard uses the KPIs of these roles, weighted by these shares.') +
-    (!Object.keys(S.roles).length ? `<div class="card"><div class="empty"><b>Add roles first</b>Set up roles in the Role library, then assign people here.</div></div>` :
+    vRoleCheck() + (!Object.keys(S.roles).length ? `<div class="card"><div class="empty"><b>Add roles first</b>Set up roles in the Role library, then assign people here.</div></div>` :
     (ed ? `<div class="card"><h2>Assign many at once</h2><p class="sub">Give everyone with the same designation the same main role. People who already have a main role are left as they are.</p>
       <div class="row" style="gap:8px"><select class="inp" id="bkDesig" style="width:auto;min-width:220px"><option value="">Designation…</option>${Object.entries(desigs).sort().map(([d, n]) => `<option value="${esc(d)}">${esc(d)} (${n})</option>`).join('')}</select>
       <select class="inp" id="bkRole" style="width:auto;min-width:220px">${roleOpts('', 'Main role…')}</select><button class="btn tonal wi" data-a="asBulk">Assign</button></div></div>` : '') +
@@ -2021,6 +2022,53 @@ async function rwbApply() {
   try { await update(ref(db), upd); log('Roles workbook applied', I.ren.length + ' renamed, ' + I.rNew.length + ' created, ' + Object.keys(I.aSet).length + ' people changed, ' + I.delOk.length + ' deleted'); toast('Applied'); S.rimp = null; draw(); } catch (e) { fail(e); }
 }
 
+// ══ v3.7: people whose designation no longer matches their main role (for example after a promotion) ══
+// A "Keep current role" decision is stored in rcheck/<person> with the designation and role at that time; it stops the flag until either changes.
+function roleMismatches() {
+  if (!Object.keys(S.roles || {}).length) return [];
+  const out = [];
+  Object.entries(S.people || {}).forEach(([pid, p]) => {
+    if (p.status === 'left' || p.cat === 'supply' || !p.desig) return;
+    const main = Object.entries(assignOf(pid)).find(([r, x]) => x && x.lvl === 'main'); if (!main || !S.roles[main[0]]) return;
+    const cur = main[0], r = S.roles[cur], dk = dKey(p.desig);
+    if (dKey(r.name) === dk || arr(r.desigs).some(x => dKey(x) === dk)) return;
+    const exp = roleForDesig(p.desig);
+    if (exp === cur) return;
+    if (!exp && !arr(r.desigs).length) return;
+    const ok = (S.rcheck || {})[pid]; if (ok && ok.role === cur && dKey(ok.desig) === dk) return;
+    out.push({ pid, p, cur, exp: exp || '', pct: Number(main[1].pct || 0) });
+  });
+  return out.sort((a, b) => String(a.p.name || '').localeCompare(String(b.p.name || '')));
+}
+function vRoleCheck() {
+  if (!seesAssign()) return '';
+  const M = roleMismatches(); if (!M.length) { S.mm.open = false; return ''; }
+  const ed = canW(); const many = M.length !== 1;
+  const intro = `<b style="font-weight:500">${M.length}</b> ${many ? 'people have designations that no longer match their' : 'person has a designation that no longer matches their'} main role, usually after a promotion or a change in the HR Portal.`;
+  if (!S.mm.open) return `<div class="banner warn no-print" style="align-items:center"><span style="flex:1">${intro}</span><button class="btn tonal sm" data-a="mmOpen">Review</button></div>`;
+  const rn = id => esc((S.roles[id] || {}).name || '?');
+  const rows = M.map(x => { const r = S.roles[x.cur], ds = arr(r.desigs);
+    const acts = !ed ? '' : x.exp ? `<div class="row" style="gap:6px"><button class="btn fill sm wi" data-a="mmAccept" data-v="${x.pid}">Change to ${rn(x.exp)}</button><button class="btn text sm wi" data-a="mmKeep" data-v="${x.pid}">Keep current role</button></div>`
+      : `<div class="row" style="gap:6px"><select class="inp wi" data-c="mmTo" data-k="${x.pid}" style="width:auto;min-width:180px;padding:6px 8px;font-size:13px">${roleOpts('', 'Change to…').replace(new RegExp('<option value="' + x.cur + '"[^>]*>[^<]*</option>'), '')}</select><button class="btn text sm wi" data-a="mmKeep" data-v="${x.pid}">Keep current role</button><button class="btn text sm wi" data-a="mmLink" data-v="${x.pid}">Link designation to ${rn(x.cur)}</button></div>`;
+    return `<tr><td style="min-width:180px"><b style="font-weight:500">${esc(x.p.name)}</b><div class="mmeta">${esc(x.p.empId || '')}${x.p.dept ? ' · ' + esc(x.p.dept) : ''}</div></td>
+      <td>${esc(x.p.desig)}</td>
+      <td>${rn(x.cur)}<div class="mmeta">${x.pct}% · ${ds.length ? 'linked to ' + ds.map(esc).join(', ') : 'no designations linked'}</div></td>
+      <td>${x.exp ? `<b style="font-weight:500">${rn(x.exp)}</b><div class="mmeta">the role linked to this designation</div>` : '<span class="mmeta">No role is linked to this designation yet</span>'}</td>
+      <td>${acts}</td></tr>`; }).join('');
+  return `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Designation check</h2><p class="sub" style="margin:0">${intro} Sub-roles and their shares stay as they are; a new main role takes the remaining share up to 100%. "Keep current role" stops the flag until the person's designation changes again.</p></div><button class="btn text no-print" data-a="mmClose">Close</button></div>
+    <div class="tw mt"><table><thead><tr><th>Person</th><th>Designation now</th><th>Current main role</th><th>Suggested role</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${ed && M.length > 1 ? `<div class="row mt no-print"><button class="btn out sm wi" data-a="mmKeepAll">Keep all ${M.length} as they are</button><span class="mmeta">Useful the first time, for people you assigned by hand.</span></div>` : ''}</div>`;
+}
+const mmFind = pid => roleMismatches().find(x => x.pid === pid);
+function mmChange(x, to) {
+  if (!x || !to || !S.roles[to] || to === x.cur) return;
+  const a = JSON.parse(JSON.stringify(assignOf(x.pid))); delete a[x.cur]; delete a[to];
+  const subs = Object.values(a).reduce((s, y) => s + Number(y.pct || 0), 0);
+  a[to] = { lvl: 'main', pct: Math.max(0, 100 - subs) };
+  update(ref(db), { ['rassign/' + x.pid]: a, ['rcheck/' + x.pid]: null }).then(() => { log('Main role changed after designation check', x.p.name + ' (' + x.p.desig + '): ' + S.roles[x.cur].name + ' → ' + S.roles[to].name); toast('Saved'); }).catch(fail);
+}
+const mmRec = x => ({ desig: String(x.p.desig).slice(0, 120), role: x.cur, at: Date.now(), by: S.user.email });
+
 // ── events
 const ACT = {
   signin: async () => {
@@ -2174,6 +2222,21 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
   else if (c === 'impUnc') { S.imp.unc = t.value; draw(); } else if (c === 'impLeft') { S.imp.markLeft = t.checked; draw(); }
   else if (c === 'crMonth') { S.cr.month = t.value || S.cr.month; draw(); } });
 document.addEventListener('keydown', ev => { if (ev.key === 'Enter' && !$('#gate').hidden && (ev.target.id === 'pw' || ev.target.id === 'em')) ACT.signin(); if (ev.key === 'Escape' && $('#modal').innerHTML) closeModal(); });
+// v3.7 designation check: actions
+Object.assign(ACT, {
+  mmOpen: () => { S.mm.open = true; draw(); }, mmClose: () => { S.mm.open = false; draw(); },
+  mmAccept: b => { const x = mmFind(b.dataset.v); if (x && x.exp) mmChange(x, x.exp); },
+  mmKeep: b => { const x = mmFind(b.dataset.v); if (!x) return; set(ref(db, 'rcheck/' + x.pid), mmRec(x)).then(() => { log('Main role kept after designation check', x.p.name + ' (' + x.p.desig + '): ' + S.roles[x.cur].name); toast('Kept'); }).catch(fail); },
+  mmKeepAll: () => { const M = roleMismatches(); if (!M.length || !confirm('Keep the current main role for all ' + M.length + ' people? Each will be flagged again only if their designation changes.')) return;
+    const upd = {}; M.forEach(x => { upd['rcheck/' + x.pid] = mmRec(x); });
+    update(ref(db), upd).then(() => { log('Main roles kept after designation check', M.length + ' people'); toast('Kept ' + M.length); }).catch(fail); },
+  mmLink: b => { const x = mmFind(b.dataset.v); if (!x || x.exp) return; const r = S.roles[x.cur];
+    if (!confirm('Link the designation "' + x.p.desig + '" to the role "' + r.name + '"?\n\nEveryone with this designation will then match this role, and new joiners with it will get it as their main role automatically.')) return;
+    const list = arr(r.desigs).slice(); list.push(String(x.p.desig).trim().slice(0, 120));
+    set(ref(db, 'roles/' + x.cur + '/desigs'), list).then(() => { log('Designation linked to role', x.p.desig + ' → ' + r.name); toast('Linked'); }).catch(fail); }
+});
+document.addEventListener('change', ev => { const t = ev.target; if (!t.dataset || t.dataset.c !== 'mmTo' || !t.value) return;
+  const x = mmFind(t.dataset.k); if (!x) return; if (!confirm('Change the main role of ' + x.p.name + ' from "' + S.roles[x.cur].name + '" to "' + S.roles[t.value].name + '"?')) { t.value = ''; return; } mmChange(x, t.value); });
 </script>
 </body>
 </html>
