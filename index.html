@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.7. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.8. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -343,7 +343,7 @@ function watchAccess(u) {
     }
     const first = !S.acc; S.acc = acc;
     if (first) startData();
-    if (!S.view) { S.view = isTK() ? 'register' : isHead() ? 'cards' : 'overview'; S.sel = isHead() ? myOwner() : ''; }
+    if (!S.view) { S.view = isTK() ? 'register' : isHSE() ? 'hseov' : isHead() ? 'cards' : 'overview'; S.sel = isHead() ? myOwner() : ''; }
     show('app'); render();
   }, e => { $('#gateMsg').textContent = 'Could not check your access: ' + (e.code || e.message); show('gate'); }));
 }
@@ -352,6 +352,11 @@ function watch(path, apply) { subs.push(onValue(ref(db, path), s => { apply(s.va
 function startData() {
   watch('settings', v => S.settings = v);
   watch('sites', v => S.sites = v); watch('trades', v => S.trades = v); watch('companies', v => S.companies = v); watch('closed', v => S.closed = v);
+  if (isHSE()) {
+    watch('hse', v => S.hse = { obs: v.obs || {}, kpi: v.kpi || {} }); watch('people', v => S.people = v); watch('units', v => S.units = v);
+    return;
+  }
+  if (isAdmin() || isCeo()) watch('hse', v => S.hse = { obs: v.obs || {}, kpi: v.kpi || {} });
   if (isTK()) {
     tkSites().forEach(sid => subs.push(onValue(query(ref(db, 'people'), orderByChild('site'), equalTo(sid)), s => { S.peopleBySite[sid] = s.val() || {}; S.people = Object.assign({}, ...Object.values(S.peopleBySite)); render(); }, e => console.warn('people', e && e.code))));
     return;
@@ -388,6 +393,7 @@ const svg = k => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[k]}"
 function navItems() {
   const n = [];
   if (isTK()) { n.push(['register', 'Site register', 'delay']); n.push(['dash', 'Dashboard', 'home']); return n; }
+  if (isHSE()) { n.push(['sep', 'Health and safety']); n.push(['hseov', 'HSE overview', 'home']); n.push(['hseobs', 'Observations and NCRs', 'delay']); n.push(['hsekpi', 'Weekly HSE KPIs', 'chart']); return n; }
   if (isAdmin() || isCeo()) n.push(['overview', 'Overview', 'home']);
   if (isHead() && myOwner()) n.push(['mine', 'My scorecard', 'me']);
   n.push(['cards', 'Scorecards', 'cards']);
@@ -395,6 +401,7 @@ function navItems() {
   if (isFin() || isAdmin()) n.push(['finance', 'Finance check', 'fin']);
   if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) n.push(['register', 'Site register', 'cards']); n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
   n.push(['sep', 'Roles and KPIs']); n.push(['units', 'Business units', 'fin']); n.push(['roles', 'Role library', 'cards']); if (isAdmin() || isCeo()) n.push(['assign', 'Who does what', 'me']); n.push(['links', 'Department links', 'link']); n.push(['kpilib', 'KPI library', 'chart']);
+  if (isAdmin() || isCeo()) { n.push(['sep', 'Health and safety']); n.push(['hseov', 'HSE overview', 'home']); n.push(['hseobs', 'Observations and NCRs', 'delay']); n.push(['hsekpi', 'Weekly HSE KPIs', 'chart']); }
   if (isAdmin()) { n.push(['sep', 'Admin']); n.push(['people', 'People and sites', 'me']); n.push(['access', 'Access', 'key']); n.push(['setup', 'Scorecard setup', 'cog']); n.push(['activity', 'Activity', 'hist']); }
   return n;
 }
@@ -417,15 +424,15 @@ function costReminder() {
     <div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn tonal sm" data-a="crGo" data-v="${M}">Import now</button><button class="btn text sm" data-a="crLater" data-v="${M}">Remind me later</button></div></div>`;
 }
 function draw() {
-  const roleTxt = isAdmin() ? (S.acc.ro ? 'Super user · view only' : 'Super user') : isCeo() ? 'CEO · view only' : isTK() ? 'Timekeeper' : (isFin() ? 'Function head · Finance' : 'Function head');
+  const roleTxt = isAdmin() ? (S.acc.ro ? 'Super user · view only' : 'Super user') : isCeo() ? 'CEO · view only' : isTK() ? 'Timekeeper' : isHSE() ? 'Health and safety' : (isFin() ? 'Function head · Finance' : 'Function head');
   $('#roleChip').textContent = roleTxt; const av = $('#avatar'); av.textContent = ini((S.user.email || '').split('@')[0].replace(/[._-]/g, ' ')); av.title = S.user.email;
   const pend = Object.keys(S.users).filter(u => !S.access[u]).length;
-  const unconf = finRows().filter(r => !r.e.fConf).length;
+  const unconf = isHSE() ? 0 : finRows().filter(r => !r.e.fConf).length;
   const mmN = seesAssign() ? roleMismatches().length : 0;
   $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
     `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'assign' && mmN ? `<span class="count">${mmN}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
-  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib }[S.view] || (isTK() ? vRegister : vCards);
-  $('#main').innerHTML = `<div class="page">${costReminder()}${V()}</div>`;
+  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib, hseov: vHseOv, hseobs: vHseObs, hsekpi: vHseKpi }[S.view] || (isTK() ? vRegister : isHSE() ? vHseOv : vCards);
+  $('#main').innerHTML = `<div class="page">${costReminder()}${hseBanner()}${V()}</div>`;
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
 }
@@ -553,7 +560,7 @@ function vAccess() {
   const cur = Object.entries(S.access).sort((a, b) => String(a[1].email || '').localeCompare(b[1].email || ''));
   const ownOpts = sel => `<option value="">— none —</option>` + ownersSorted().map(([o, x]) => `<option value="${o}" ${o === sel ? 'selected' : ''}>${esc(x.name)}</option>`).join('');
   const siteBox = (u, a) => `<details style="margin-top:6px"><summary class="mmeta" style="cursor:pointer">Timekeeper sites (${Object.keys(a.sites || {}).length})</summary><div class="row" style="gap:4px 14px;margin-top:6px">${Object.entries(S.sites).sort(byName).map(([k, x]) => `<label class="chk" style="padding:2px 0"><input type="checkbox" class="ts_${u}" value="${k}" ${(a.sites || {})[k] ? 'checked' : ''}>${esc(x.name)}</label>`).join('') || '<span class="mmeta">Add sites first under People and sites.</span>'}</div></details>`;
-  const form = (u, a) => `<div><div class="row" style="gap:8px"><select class="inp" id="r_${u}" style="width:auto">${['head', 'timekeeper', 'ceo', 'admin'].map(r => `<option value="${r}" ${a.role === r ? 'selected' : ''}>${{ head: 'Function head', timekeeper: 'Timekeeper', ceo: 'CEO (view only)', admin: 'Super user' }[r]}</option>`).join('')}</select>
+  const form = (u, a) => `<div><div class="row" style="gap:8px"><select class="inp" id="r_${u}" style="width:auto">${['head', 'timekeeper', 'hse', 'ceo', 'admin'].map(r => `<option value="${r}" ${a.role === r ? 'selected' : ''}>${{ head: 'Function head', timekeeper: 'Timekeeper', hse: 'Health and safety (HSE)', ceo: 'CEO (view only)', admin: 'Super user' }[r]}</option>`).join('')}</select>
     <select class="inp" id="o_${u}" style="width:auto" aria-label="Scorecard">${ownOpts(a.ownerId)}</select><label class="chk"><input type="checkbox" id="f_${u}" ${a.finance ? 'checked' : ''}>Finance</label><label class="chk"><input type="checkbox" id="ro_${u}" ${a.ro ? 'checked' : ''}>View only (super user)</label>
     <button class="btn tonal sm" data-a="saveAccess" data-v="${u}">Save</button></div>${siteBox(u, a)}</div>`;
   return ph('Access', 'People sign in with an account HR creates in Firebase. After their first sign-in they appear here. Give each person one role.') +
@@ -590,7 +597,7 @@ function modal(title, fields, onSave, extra = '') {
     if (f.t === 'chk') return `<label class="chk ${f.full ? 'full' : ''}"><input type="checkbox" id="mf_${f.id}" ${v ? 'checked' : ''}>${esc(f.l)}</label>`;
     if (f.t === 'sel') return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><select class="inp" id="mf_${f.id}">${f.o.map(([k, l]) => `<option value="${esc(k)}" ${String(k) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
     if (f.t === 'area') return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><textarea class="inp" id="mf_${f.id}">${esc(v)}</textarea>${f.h ? `<span class="mmeta">${esc(f.h)}</span>` : ''}</div>`;
-    return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><input class="inp" id="mf_${f.id}" value="${esc(v)}" ${f.num ? 'inputmode="decimal"' : ''}>${f.h ? `<span class="mmeta">${esc(f.h)}</span>` : ''}</div>`;
+    return `<div class="${cl}"><label for="mf_${f.id}">${esc(f.l)}</label><input class="inp" id="mf_${f.id}" ${f.t === 'date' ? 'type="date"' : ''} ${f.dl ? `list="dl_${f.id}"` : ''} value="${esc(v)}" ${f.num ? 'inputmode="decimal"' : ''}>${f.dl ? `<datalist id="dl_${f.id}">${f.dl.map(o => `<option value="${esc(o)}">`).join('')}</datalist>` : ''}${f.h ? `<span class="mmeta">${esc(f.h)}</span>` : ''}</div>`;
   }).join('')}</div><div class="acts">${extra}<button class="btn text" data-a="closeModal">Cancel</button><button class="btn fill" data-a="modalSave">Save</button></div></div></div>`;
   modal.save = () => { const r = {}; fields.forEach(f => { const el = $('#mf_' + f.id); r[f.id] = f.t === 'chk' ? el.checked : el.value.trim(); }); onSave(r); };
 }
@@ -678,7 +685,7 @@ function saveAccess(u) {
   set(ref(db, 'access/' + u), rec).then(() => { log('Access set', rec.email + ' → ' + role + (ro && role === 'admin' ? ' (view only)' : '') + (fin ? ' + finance' : '') + (rec.ownerId ? ' · ' + (S.owners[rec.ownerId] || {}).name : '') + (role === 'timekeeper' ? ' · ' + Object.keys(sites).map(k => nm('sites', k)).join(', ') : '')); toast('Access saved'); }).catch(fail);
 }
 function exportBackup() {
-  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units', 'rcheck'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
+  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units', 'rcheck', 'hse'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
     const blob = new Blob([JSON.stringify(Object.fromEntries(r), null, 1)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PEH-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     log('Backup downloaded', ''); }).catch(fail);
@@ -2237,6 +2244,294 @@ Object.assign(ACT, {
 });
 document.addEventListener('change', ev => { const t = ev.target; if (!t.dataset || t.dataset.c !== 'mmTo' || !t.value) return;
   const x = mmFind(t.dataset.k); if (!x) return; if (!confirm('Change the main role of ' + x.p.name + ' from "' + S.roles[x.cur].name + '" to "' + S.roles[t.value].name + '"?')) { t.value = ''; return; } mmChange(x, t.value); });
+
+// ══ v3.8: Health & Safety (HSE) ══════════════════════════════════════════════
+// One place for NCRs / SORs / near misses and the weekly HSE KPIs, for CK and CKC.
+// Items come in two ways: entered here, or imported from the HSE register Excel (later also a Procore export).
+// Man-hours and headcount come from the daily site registers; HSE types them only where a site has no registers.
+// Overdue actions, escalation to the CEO, repeat issues and "silent" sites are flagged automatically.
+// Due dates follow the company NCR form: High = stop work, same day; Medium = within 48 hours; Low = within a week.
+const isHSE = () => !!(S.acc && S.acc.role === 'hse');
+const seesHSE = () => isAdmin() || isCeo() || isHSE();
+const canHSE = () => isHSE() || (isAdmin() && S.acc.ro !== true);
+S.hse = { obs: {}, kpi: {} };
+S.ho = { status: 'open', site: '', type: '', risk: '', q: '', imp: null };
+S.hk = { week: '' };
+S.hd = { period: '4w', site: '', unit: '' };
+const HSE_TYPES = [['SOR', 'SOR (safety observation)'], ['NM', 'Near miss'], ['NCR', 'NCR (non-conformance)']];
+const HSE_SRC = [['internal', 'Internal'], ['client', 'Client'], ['consultant', 'Consultant'], ['authority', 'Authority']];
+const HSE_AREA = ['Safety', 'Health', 'Security', 'Environment', 'Others'];
+const HSE_RISK = ['High', 'Medium', 'Low'];
+const HSE_DUE = { High: 0, Medium: 2, Low: 7 };
+const HSE_ESC_DAYS = 3, HSE_SILENT_DAYS = 7;
+const HSE_CAT = ['Caught in / between', 'Struck by / against', 'Slip, trip and fall', 'Falling objects', 'Fire / explosion', 'Machinery, tools and equipment', 'Electricity', 'Chemical / dangerous materials', 'Lifting / shifting', 'Manual handling', 'Lighting', 'Housekeeping / material stacking', 'Environment (wind, leak, spill)', 'Overstress / overexertion', 'Welfare', 'Without licence / 3rd party certificate', 'PTW non-compliance', 'Others (signs etc.)'];
+const HSE_NM = ['Electrical short circuit', 'Electrical overload', 'Electrical arc blast', 'Flammable waste', 'Falling objects', 'Bursting of vessels / pressure testing', 'Damage to cables and pipelines', 'Damage to civil / steel structure', 'Failure / malfunction of equipment or machine', 'Collapse of civil / steel structure', 'Collapse of soil / shoring', 'Overturning of vehicle / equipment', 'Collision of vehicle / equipment', 'Release of gas / biological agent', 'Release of liquids / solids', 'Sabotage / theft', 'Others'];
+const HSE_RC_P = ['Physical capability', 'Physical condition', 'Mental state', 'Skill level', 'Behaviour', 'Others'];
+const HSE_RC_S = ['Inadequate training / knowledge transfer', 'Inadequate leadership / supervision', 'Inadequate / missing work procedures', 'Inadequate incident investigation', 'Inadequate purchasing / material handling', 'Inadequate engineering / design / controls', 'Inadequate tools / equipment', 'Inadequate maintenance', 'Inadequate risk assessment', 'Inadequate communication', 'Inadequate contractor management', 'Inadequate planned inspections', 'Inadequate management of change', 'Inadequate emergency response plan', 'Inadequate planning / bypassing QHSE system', 'Others'];
+// KPI targets and red / amber limits: the same as the HSE team's weekly KPI workbook
+const HSE_KPIS = [
+  ['ltifr', 'LTIFR (per 1,000,000 h)', 'low', 0, 0.5, 1], ['trir', 'TRIR (per 200,000 h)', 'low', 0, 1, 2], ['sev', 'Severity rate', 'low', 0, 50, 100],
+  ['ld', 'Lost time days', 'low', 0, 5, 10], ['nmr', 'Near miss reporting rate', 'high', 5, 3, 1], ['insp', 'Inspection compliance %', 'high', 95, 90, 80],
+  ['aud', 'Audit finding closure %', 'high', 95, 90, 80], ['tbt', 'Toolbox talk effectiveness %', 'high', 90, 80, 70], ['trn', 'Training completion %', 'high', 95, 90, 80],
+  ['ptw', 'PTW / JSA compliance %', 'high', 95, 90, 80], ['od', 'Overdue actions %', 'low', 5, 10, 20], ['act', 'Average days to close', 'low', 7, 10, 14],
+  ['env', 'Environmental incidents', 'low', 0, 1, 2], ['envc', 'Environmental action closure %', 'high', 95, 90, 80]];
+function hseRag(k, val) { const d = HSE_KPIS.find(x => x[0] === k); if (!d || val == null || isNaN(val)) return ''; const [, , dir, tgt, amb, red] = d;
+  if (dir === 'low') return val >= red ? 'bad' : val >= amb ? 'warn' : 'good';
+  return val >= tgt ? 'good' : val > red ? 'warn' : 'bad'; }
+const hseToday = () => today();
+const hseDays = (a, b) => Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 864e5);
+const hseMon = s => { const d = new Date(s + 'T00:00:00'); const w = d.getDay() || 7; d.setDate(d.getDate() - w + 1); return ymd(d); };
+const hseNorm = s => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function hseSiteName(o) { return o.site && S.sites[o.site] ? S.sites[o.site].name : (o.proj || '(no project)'); }
+function hseSiteKeyOf(o) { return o.site || ('x_' + hseNorm(o.proj)); }
+function hseFindSite(txt) { const n = hseNorm(txt); if (!n) return ''; const hit = Object.entries(S.sites || {}).find(([k, s]) => hseNorm(s.name) === n || hseNorm(s.project) === n) || Object.entries(S.sites || {}).find(([k, s]) => n.length >= 3 && (hseNorm(s.name).includes(n) || n.includes(hseNorm(s.name)))); return hit ? hit[0] : ''; }
+function hseDue(o) { if (o.due) return o.due; if (!o.d) return ''; return addDays(o.d, HSE_DUE[o.risk] != null ? HSE_DUE[o.risk] : 7); }
+function hseState(o) { // open / overdue / escalated / closed, with days
+  const t = hseToday(); if (o.cd) return { st: 'closed', days: o.d ? hseDays(o.d, o.cd) : 0 };
+  const due = hseDue(o); const late = due && due < t ? hseDays(due, t) : 0;
+  return { st: late >= HSE_ESC_DAYS ? 'escalated' : late > 0 ? 'overdue' : 'open', late, open: o.d ? hseDays(o.d, t) : 0 };
+}
+function hseChip(o) { const s = hseState(o);
+  return s.st === 'closed' ? chip('good', 'Closed in ' + s.days + ' d') : s.st === 'escalated' ? chip('bad', 'Overdue ' + s.late + ' d · CEO') : s.st === 'overdue' ? chip('bad', 'Overdue ' + s.late + ' d') : chip('warn', 'Open ' + s.open + ' d'); }
+const hseObsList = () => Object.entries(S.hse.obs || {}).map(([k, o]) => Object.assign({ k }, o));
+// Man-hours and headcount of one site for one week, from the daily registers (null = no registers that week)
+function hseMH(siteKey, mon) {
+  if (!siteKey || siteKey.startsWith('x_')) return null; let mh = 0, ppl = 0, days = 0, any = false;
+  for (let i = 0; i < 7; i++) { const d = addDays(mon, i); const r = ((attCache[d.slice(0, 7)] || {})[d.slice(8)] || {})[siteKey]; if (!r) continue; any = true; let n = 0;
+    Object.values(r.w || {}).forEach(a => { if (a.s === 'P' || a.s === 'WFH') { mh += Number(a.h || 0) + Number(a.ot || 0); n++; } });
+    Object.values(r.sub || {}).forEach(c => { c = Number(c || 0); mh += c * subHours(d); n += c; });
+    if (n) { ppl += n; days++; } }
+  return any ? { mh: Math.round(mh), hc: days ? Math.round(ppl / days) : 0 } : null;
+}
+function hseNeedMonths(weeks) { const ms = new Set(); weeks.forEach(w => { ms.add(w.slice(0, 7)); ms.add(addDays(w, 6).slice(0, 7)); }); const miss = [...ms].filter(m => !attCache[m]);
+  if (miss.length && !S.hseLoading) { S.hseLoading = true; loadMonths(miss).catch(() => {}).finally(() => { S.hseLoading = false; render(); }); } return miss.length === 0; }
+// Weekly figures for one site (or all), combining the KPI entries and the register
+function hseWeekFig(mon, siteKey) {
+  const k = (S.hse.kpi || {})[mon] || {}; const sun = addDays(mon, 6);
+  const keys = siteKey ? [siteKey] : [...new Set(Object.keys(k).concat(hseObsList().filter(o => o.d >= mon && o.d <= sun).map(hseSiteKeyOf)).concat(Object.keys(S.sites || {})))];
+  const F = { mh: 0, hc: 0, typed: false, lti: 0, mtc: 0, fac: 0, ld: 0, ip: 0, ic: 0, ar: 0, ac: 0, tp: 0, tc: 0, tbp: 0, tbd: 0, tbaW: 0, pt: 0, pc: 0, ei: 0, eo: 0, ec: 0, nm: 0, sites: 0 };
+  keys.forEach(sk => { const e = k[sk] || {}; const auto = hseMH(sk, mon);
+    const mh = auto ? auto.mh : Number(e.mh || 0), hc = auto ? auto.hc : Number(e.hc || 0); if (!auto && e.mh) F.typed = true;
+    if (mh || Object.keys(e).length) F.sites++;
+    F.mh += mh; F.hc += hc; ['lti', 'mtc', 'fac', 'ld', 'ip', 'ic', 'ar', 'ac', 'tp', 'tc', 'tbp', 'tbd', 'pt', 'pc', 'ei', 'eo', 'ec'].forEach(f => F[f] += Number(e[f] || 0));
+    F.tbaW += Number(e.tba || 0) * Number(e.tbd || 0); });
+  F.nm = hseObsList().filter(o => o.typ === 'NM' && o.d >= mon && o.d <= sun && (!siteKey || hseSiteKeyOf(o) === siteKey)).length;
+  return F;
+}
+function hseKpiVals(F, obs) {
+  const pct = (a, b) => b ? a / b * 100 : null; const per = (n, m) => F.mh ? n * m / F.mh : null;
+  const open = obs.filter(o => !o.cd), od = open.filter(o => hseState(o).late > 0), closed = obs.filter(o => o.cd && o.d);
+  const tba = F.tbd ? F.tbaW / F.tbd : null;
+  return { ltifr: per(F.lti, 1e6), trir: per(F.lti + F.mtc + F.fac, 2e5), sev: per(F.ld, 1e6), ld: F.ld, nmr: per(F.nm, 1e6), insp: pct(F.ic, F.ip), aud: pct(F.ac, F.ar),
+    tbt: F.tbp && tba != null ? tba * (F.tbd / F.tbp) : null, trn: pct(F.tc, F.tp), ptw: pct(F.pc, F.pt), od: open.length ? od.length / open.length * 100 : 0,
+    act: closed.length ? closed.reduce((s, o) => s + hseDays(o.d, o.cd), 0) / closed.length : null, env: F.ei, envc: pct(F.ec, F.eo) };
+}
+// Sites with people working (registers) or recent HSE activity, and which of them have gone quiet
+function hseActiveSites() { const t = hseToday(), out = {};
+  for (let i = 0; i < 7; i++) { const d = addDays(t, -i); Object.entries((attCache[d.slice(0, 7)] || {})[d.slice(8)] || {}).forEach(([sk, r]) => { if (Object.values(r.w || {}).some(a => a.s === 'P') || Object.values(r.sub || {}).some(n => n > 0)) out[sk] = true; }); }
+  const since = addDays(t, -28); hseObsList().filter(o => o.d >= since).forEach(o => out[hseSiteKeyOf(o)] = true);
+  Object.entries(S.hse.kpi || {}).forEach(([w, rows]) => { if (w >= since) Object.keys(rows || {}).forEach(sk => out[sk] = true); });
+  return Object.keys(out);
+}
+function hseAlarms() {
+  const t = hseToday(), since = addDays(t, -HSE_SILENT_DAYS), list = [];
+  const thisMon = hseMon(t), lastMon = addDays(thisMon, -7), dow = new Date(t + 'T00:00:00').getDay();
+  hseActiveSites().forEach(sk => {
+    const name = S.sites[sk] ? S.sites[sk].name : (hseObsList().find(o => hseSiteKeyOf(o) === sk) || {}).proj || sk;
+    if (S.sites[sk] && S.sites[sk].active === false) return;
+    if (!hseObsList().some(o => hseSiteKeyOf(o) === sk && o.d >= since)) list.push({ sk, name, why: 'No HSE observation in the last ' + HSE_SILENT_DAYS + ' days' });
+    if ((dow >= 4 || dow === 0) && !((S.hse.kpi || {})[lastMon] || {})[sk]) list.push({ sk, name, why: 'Weekly HSE KPIs for the week of ' + fmtD(lastMon) + ' not entered (due Thursday)' });
+  });
+  return list;
+}
+function hseRepeats(fromD) { const m = {}; hseObsList().filter(o => o.d >= fromD && (o.cat || o.nm)).forEach(o => { const key = hseSiteKeyOf(o) + '|' + (o.cat || o.nm); (m[key] = m[key] || { name: hseSiteName(o), cat: o.cat || o.nm, n: 0, to: new Set() }).n++; if (o.to) m[key].to.add(o.to); });
+  return Object.values(m).filter(x => x.n >= 2).sort((a, b) => b.n - a.n); }
+// Short banner on the main Overview for the CEO and super users
+function hseBanner() { if (!(isAdmin() || isCeo()) || S.view !== 'overview') return ''; const L = hseObsList(); const esc3 = L.filter(o => hseState(o).st === 'escalated').length, od = L.filter(o => hseState(o).late > 0).length, sil = hseAlarms().length;
+  if (!esc3 && !od && !sil) return '';
+  return `<div class="banner warn no-print" style="align-items:center"><span style="flex:1"><b style="font-weight:500">Health &amp; safety:</b> ${od} overdue action${od === 1 ? '' : 's'}${esc3 ? ' (' + esc3 + ' escalated to you)' : ''}${sil ? ' · ' + sil + ' site alarm' + (sil === 1 ? '' : 's') : ''}.</span><button class="btn tonal sm" data-a="nav" data-v="hseov">Open HSE overview</button></div>`; }
+
+// ── HSE overview (dashboard)
+function vHseOv() {
+  const P = S.hd, t = hseToday(); const from = P.period === 'week' ? hseMon(t) : P.period === '4w' ? addDays(hseMon(t), -21) : P.period === 'month' ? t.slice(0, 8) + '01' : t.slice(0, 5) + '01-01';
+  const weeks = []; for (let w = hseMon(from); w <= hseMon(t); w = addDays(w, 7)) weeks.push(w);
+  hseNeedMonths(weeks.concat([hseMon(addDays(t, -7))]));
+  const inSel = o => (!P.site || hseSiteKeyOf(o) === P.site) && (!P.unit || siteUnit(o.site) === P.unit);
+  const all = hseObsList().filter(inSel), per = all.filter(o => o.d >= from && o.d <= t);
+  const open = all.filter(o => !o.cd), od = open.filter(o => hseState(o).late > 0), esc3 = open.filter(o => hseState(o).st === 'escalated'), closed = per.filter(o => o.cd);
+  const F = { mh: 0, lti: 0, mtc: 0, fac: 0, ld: 0, nm: 0, ip: 0, ic: 0, ar: 0, ac: 0, tp: 0, tc: 0, tbp: 0, tbd: 0, tbaW: 0, pt: 0, pc: 0, ei: 0, eo: 0, ec: 0, typed: false };
+  const siteKeys = P.site ? [P.site] : null;
+  weeks.forEach(w => { const keys = siteKeys || [...new Set(Object.keys((S.hse.kpi || {})[w] || {}).concat(Object.keys(S.sites || {})))].filter(sk => !P.unit || siteUnit(sk) === P.unit);
+    keys.forEach(sk => { const f = hseWeekFig(w, sk); Object.keys(F).forEach(x => { if (x === 'typed') F.typed = F.typed || f.typed; else F[x] += f[x] || 0; }); }); });
+  const K = hseKpiVals(F, all);
+  const tile = (l, v, s, c) => `<div class="tile" ${c ? `style="border-top:3px solid var(--${c === 'bad' ? 'bad' : c === 'warn' ? 'warn' : 'good'})"` : ''}><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  const num = (v, d = 2) => v == null ? '—' : (Math.round(v * Math.pow(10, d)) / Math.pow(10, d)).toLocaleString('en-US');
+  const siteOpts = [['', 'All projects / sites'], ...[...new Set(hseObsList().map(hseSiteKeyOf).concat(Object.keys(S.sites || {})))].map(sk => [sk, S.sites[sk] ? S.sites[sk].name : (hseObsList().find(o => hseSiteKeyOf(o) === sk) || {}).proj || sk]).sort((a, b) => String(a[1]).localeCompare(b[1]))];
+  const alarms = hseAlarms().filter(a => !P.site || a.sk === P.site), reps = hseRepeats(addDays(t, -30)).filter(r => !P.site || hseNorm(r.name) === hseNorm(siteOpts.find(s => s[0] === P.site)?.[1]));
+  const odRows = od.sort((a, b) => hseState(b).late - hseState(a).late).map(o => `<tr><td><b style="font-weight:500">${esc(o.ref || '—')}</b><div class="mmeta">${esc(hseSiteName(o))}</div></td><td>${esc((o.desc || '').slice(0, 90))}</td><td>${esc(o.to || '—')}</td><td>${chip(o.risk === 'High' ? 'bad' : o.risk === 'Medium' ? 'warn' : '', o.risk || '—')}</td><td>${fmtD(hseDue(o))}</td><td>${hseChip(o)}</td></tr>`).join('');
+  const kpiRows = HSE_KPIS.map(([k, l]) => { const v = K[k]; const r = hseRag(k, v); return `<tr><td>${esc(l)}</td><td class="num"><b>${num(v)}</b></td><td class="num">${HSE_KPIS.find(x => x[0] === k)[3]}</td><td>${r ? chip(r, r === 'good' ? 'On target' : r === 'warn' ? 'Amber' : 'Red') : '<span class="mmeta">no data</span>'}</td></tr>`; }).join('');
+  return ph('Health &amp; safety overview', 'NCRs, observations and safety figures for all projects. Man-hours come from the daily site registers.', `<button class="btn out no-print" data-a="print">Print</button>`) +
+    `<div class="card no-print"><div class="row" style="gap:12px;align-items:flex-end">
+      <div class="field" style="margin:0"><label for="hd_period">Period</label><select class="inp" id="hd_period" data-c="hd" data-f="period">${[['week', 'This week'], ['4w', 'Last 4 weeks'], ['month', 'This month'], ['year', 'This year']].map(([k, l]) => `<option value="${k}" ${P.period === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label for="hd_site">Project / site</label><select class="inp" id="hd_site" data-c="hd" data-f="site">${siteOpts.map(([k, l]) => `<option value="${esc(k)}" ${P.site === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+      <div class="field" style="margin:0"><label for="hd_unit">Business unit</label><select class="inp" id="hd_unit" data-c="hd" data-f="unit">${unitOpts(P.unit, 'All units')}</select></div></div></div>` +
+    `<div class="grid g4">${tile('Open actions', open.length, 'NCRs / SORs not closed', '')}${tile('Overdue', od.length, esc3.length + ' escalated to the CEO (' + HSE_ESC_DAYS + '+ days late)', od.length ? 'bad' : 'good')}${tile('Closed in period', closed.length, 'average ' + num(K.act, 1) + ' days to close', '')}${tile('LTIFR · TRIR', num(K.ltifr) + ' · ' + num(K.trir), F.mh.toLocaleString('en-US') + ' man-hours' + (F.typed ? ' (some typed)' : ''), hseRag('ltifr', K.ltifr))}</div>` +
+    (alarms.length ? `<div class="card mt" style="border-color:var(--bad)"><h2>Silence alarms</h2><p class="sub">Sites with people working but no HSE activity recorded. Silence usually means updates have stopped, not that everything is safe.</p><ul class="bul">${alarms.map(a => `<li><b>${esc(a.name)}</b>: ${esc(a.why)}</li>`).join('')}</ul></div>` : '') +
+    `<div class="card mt"><h2>Overdue actions</h2><p class="sub">Due date from the NCR form: High = same day (stop work), Medium = 48 hours, Low = one week. Escalated to the CEO after ${HSE_ESC_DAYS} days.</p>${odRows ? `<div class="tw"><table><thead><tr><th>Ref · project</th><th>Issue</th><th>Issued to</th><th>Risk</th><th>Due</th><th>Status</th></tr></thead><tbody>${odRows}</tbody></table></div>` : '<div class="empty"><b>Nothing overdue</b></div>'}</div>` +
+    `<div class="grid g2 mt"><div class="card" style="margin:0"><h2>Repeat issues (last 30 days)</h2><p class="sub">The same kind of issue twice or more on one project.</p>${reps.length ? `<div class="tw"><table><thead><tr><th>Project</th><th>Issue</th><th class="num">Times</th><th>Issued to</th></tr></thead><tbody>${reps.map(r => `<tr><td>${esc(r.name)}</td><td>${esc(r.cat)}</td><td class="num"><b>${r.n}</b></td><td>${esc([...r.to].join(', '))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>None</b></div>'}</div>
+     <div class="card" style="margin:0"><h2>Safety KPIs for the period</h2><p class="sub">Same formulas and targets as the HSE weekly KPI workbook.</p><div class="tw"><table><thead><tr><th>KPI</th><th class="num">Value</th><th class="num">Target</th><th></th></tr></thead><tbody>${kpiRows}</tbody></table></div></div></div>`;
+}
+
+// ── Observations & NCRs (register)
+function vHseObs() {
+  const O = S.ho, can = canHSE(); if (O.imp) return vHseImport();
+  const q = O.q.toLowerCase();
+  const rows = hseObsList().filter(o => { const s = hseState(o).st; return (O.status === 'all' || (O.status === 'open' && s !== 'closed') || (O.status === 'overdue' && (s === 'overdue' || s === 'escalated')) || (O.status === 'closed' && s === 'closed'))
+      && (!O.site || hseSiteKeyOf(o) === O.site) && (!O.type || o.typ === O.type) && (!O.risk || o.risk === O.risk) && (!q || (String(o.ref) + ' ' + o.desc + ' ' + o.to + ' ' + o.co + ' ' + hseSiteName(o)).toLowerCase().includes(q)); })
+    .sort((a, b) => (b.d || '').localeCompare(a.d || '') || String(b.ref || '').localeCompare(String(a.ref || '')));
+  const siteOpts = [...new Set(hseObsList().map(hseSiteKeyOf).concat(Object.keys(S.sites || {})))].map(sk => [sk, S.sites[sk] ? S.sites[sk].name : (hseObsList().find(o => hseSiteKeyOf(o) === sk) || {}).proj || sk]).sort((a, b) => String(a[1]).localeCompare(b[1]));
+  const sel = (id, v, opts) => `<select class="inp" data-c="ho" data-f="${id}" style="width:auto">${opts.map(([k, l]) => `<option value="${esc(k)}" ${v === k ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+  const body = rows.slice(0, 300).map(o => `<tr><td style="white-space:nowrap"><b style="font-weight:500">${esc(o.ref || '—')}</b><div class="mmeta">${fmtD(o.d)}${o.pc ? ' · Procore ' + esc(o.pc) : ''}${o.imp ? ' · imported' : ''}</div></td>
+      <td>${esc(hseSiteName(o))}<div class="mmeta">${esc(o.co || '')}${o.ent ? ' · ' + esc(o.ent) : ''}</div></td><td>${chip('', (HSE_TYPES.find(x => x[0] === o.typ) || [o.typ, o.typ])[0])}<div class="mmeta">${esc(o.cat || o.nm || '')}</div></td>
+      <td style="min-width:220px">${esc(o.desc || '')}${o.capa ? `<div class="mmeta">Action: ${esc(o.capa)}</div>` : ''}${o.cnote ? `<div class="mmeta" style="color:var(--good)">Closed: ${esc(o.cnote)}</div>` : ''}${o.ph ? `<div class="mmeta"><a href="${esc(o.ph)}" target="_blank" rel="noopener">Photo</a>${o.cph ? ` · <a href="${esc(o.cph)}" target="_blank" rel="noopener">Close-out photo</a>` : ''}</div>` : ''}</td>
+      <td>${esc(o.to || '—')}</td><td>${chip(o.risk === 'High' ? 'bad' : o.risk === 'Medium' ? 'warn' : '', o.risk || '—')}<div class="mmeta">due ${fmtD(hseDue(o))}</div></td><td>${hseChip(o)}</td>
+      <td class="no-print" style="white-space:nowrap">${can ? `<button class="btn text sm" data-a="hseEdit" data-v="${o.k}">Edit</button>${!o.cd ? `<button class="btn tonal sm" data-a="hseClose" data-v="${o.k}">Close</button>` : ''}` : ''}</td></tr>`).join('');
+  return ph('Observations and NCRs', 'SORs, near misses and NCRs for all projects. Enter them here, or import the HSE register Excel. Photos stay on the company server: paste the link.',
+      can ? `<div class="row no-print"><label class="btn out wi" style="position:relative">Import register (Excel)<input type="file" accept=".xlsx,.xls" data-c="hseFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn fill wi" data-a="hseEdit" data-v="">Add observation</button></div>` : '') +
+    `<div class="card no-print" style="padding:14px 16px"><div class="row" style="gap:8px"><input class="inp" placeholder="Search ref, issue, person, company" data-c="ho" data-f="q" value="${esc(O.q)}" style="flex:1;min-width:200px">
+      ${sel('status', O.status, [['open', 'Open'], ['overdue', 'Overdue'], ['closed', 'Closed'], ['all', 'All']])}${sel('site', O.site, [['', 'All projects'], ...siteOpts])}${sel('type', O.type, [['', 'All types'], ...HSE_TYPES])}${sel('risk', O.risk, [['', 'All risks'], ...HSE_RISK.map(r => [r, r])])}</div></div>` +
+    `<div class="card">${rows.length ? `<div class="tw"><table><thead><tr><th>Ref</th><th>Project</th><th>Type</th><th>Issue and action</th><th>Issued to</th><th>Risk</th><th>Status</th><th></th></tr></thead><tbody>${body}</tbody></table></div>${rows.length > 300 ? '<p class="note">Showing 300. Use the filters.</p>' : ''}` : '<div class="empty"><b>Nothing here</b>Change the filters, or add the first observation.</div>'}</div>`;
+}
+function hseNextRef(ent) { const y = new Date().getFullYear(), pre = 'HSE/' + (ent || 'CKC') + '/' + y + '/'; let m = 0; hseObsList().forEach(o => { const r = String(o.ref || ''); if (r.startsWith(pre)) m = Math.max(m, parseInt(r.slice(pre.length), 10) || 0); }); return pre + String(m + 1).padStart(3, '0'); }
+function hseEdit(k) {
+  const o = (S.hse.obs || {})[k] || { d: hseToday(), src: 'internal', typ: 'SOR', area: 'Safety', ent: 'CKC', risk: 'Medium' };
+  const siteO = [['', '— other project (type below) —'], ...Object.entries(S.sites || {}).sort(byName).map(([sk, s]) => [sk, s.name + (s.project && s.project !== s.name ? ' · ' + s.project : '')])];
+  const people = [...new Set(Object.values(S.people || {}).filter(p => p.status !== 'left' && p.cat !== 'labour').map(p => p.name))].sort();
+  const coO = [...new Set(['CK', 'CKC'].concat(Object.values(S.companies || {}).map(c => c.name)))];
+  modal(k ? 'Edit ' + (o.ref || 'observation') : 'New observation', [
+    { id: 'ent', l: 'Company (CK / CKC)', t: 'sel', v: o.ent || 'CKC', o: [['CKC', 'CKC Building Contracting'], ['CK', 'CK Architecture Interiors']] },
+    { id: 'ref', l: 'Report ref. no. (empty = next number)', v: o.ref },
+    { id: 'site', l: 'Project / site', t: 'sel', v: o.site || '', o: siteO }, { id: 'proj', l: 'Other project (only if not in the list)', v: o.site ? '' : o.proj },
+    { id: 'typ', l: 'Type', t: 'sel', v: o.typ, o: HSE_TYPES }, { id: 'src', l: 'Raised by', t: 'sel', v: o.src || 'internal', o: HSE_SRC },
+    { id: 'area', l: 'HSE area', t: 'sel', v: o.area || 'Safety', o: HSE_AREA.map(x => [x, x]) }, { id: 'risk', l: 'Risk', t: 'sel', v: o.risk || 'Medium', o: HSE_RISK.map(x => [x, x + (x === 'High' ? ' (stop work, same day)' : x === 'Medium' ? ' (within 48 hours)' : ' (within a week)')]) },
+    { id: 'cat', l: 'Category (NCR / SOR)', t: 'sel', v: o.cat || '', o: [['', '—'], ...HSE_CAT.map(x => [x, x])] }, { id: 'nm', l: 'Near miss type (near misses only)', t: 'sel', v: o.nm || '', o: [['', '—'], ...HSE_NM.map(x => [x, x])] },
+    { id: 'co', l: 'Company involved (CKC or subcontractor)', v: o.co, dl: coO }, { id: 'to', l: 'Issued to (name)', v: o.to, dl: people },
+    { id: 'loc', l: 'Location / area', v: o.loc }, { id: 'd', l: 'Issue date', t: 'date', v: o.d },
+    { id: 'desc', l: 'Non-conformance / observation', t: 'area', v: o.desc, full: 1 }, { id: 'capa', l: 'Corrective / preventive action (CAPA)', t: 'area', v: o.capa, full: 1 },
+    { id: 'due', l: 'Due date (empty = from the risk)', t: 'date', v: o.due }, { id: 'pc', l: 'Procore no. (if also in Procore)', v: o.pc },
+    { id: 'ph', l: 'Photo link (company server)', v: o.ph, full: 1 },
+    { id: 'rp', l: 'Root cause (personal factor)', t: 'sel', v: o.rp || '', o: [['', '—'], ...HSE_RC_P.map(x => [x, x])] }, { id: 'rs', l: 'Root cause (system factor)', t: 'sel', v: o.rs || '', o: [['', '—'], ...HSE_RC_S.map(x => [x, x])] }
+  ], v => {
+    if (!v.desc || !v.d) { toast('Enter the issue date and what was observed.'); return; }
+    if (!v.site && !v.proj) { toast('Choose the project / site, or type the project.'); return; }
+    if (v.ph && !/^(https?:|file:|\\\\)/i.test(v.ph)) { toast('The photo link should be a server or web link.'); return; }
+    const rec = Object.assign({}, k ? S.hse.obs[k] : {}, { ent: v.ent, ref: (v.ref || hseNextRef(v.ent)).slice(0, 40), site: v.site, proj: (v.site ? (S.sites[v.site] || {}).name : v.proj || '').slice(0, 120), typ: v.typ, src: v.src, area: v.area, risk: v.risk, cat: v.cat, nm: v.typ === 'NM' ? v.nm : '',
+      co: v.co.slice(0, 120), to: v.to.slice(0, 120), loc: v.loc.slice(0, 120), d: v.d, desc: v.desc.slice(0, 1500), capa: v.capa.slice(0, 1500), due: v.due, pc: v.pc.slice(0, 40), ph: v.ph.slice(0, 500), rp: v.rp, rs: v.rs, ub: S.user.email, ua: Date.now() });
+    if (!k) { rec.by = S.user.email; rec.at = Date.now(); }
+    Object.keys(rec).forEach(x => { if (rec[x] === '' || rec[x] == null) delete rec[x]; });
+    const id = k || push(ref(db, 'hse/obs')).key;
+    set(ref(db, 'hse/obs/' + id), rec).then(() => { log(k ? 'HSE item edited' : 'HSE item added', rec.ref + ' · ' + (rec.proj || '') + ' · ' + rec.typ); closeModal(); toast('Saved'); }).catch(fail);
+  }, k && isAdmin() && S.acc.ro !== true ? `<button class="btn danger wi" data-a="hseDel" data-v="${k}" style="margin-right:auto">Delete</button>` : '');
+}
+function hseClose(k) { const o = (S.hse.obs || {})[k]; if (!o) return;
+  modal('Close ' + (o.ref || 'item'), [{ id: 'cd', l: 'Close date', t: 'date', v: hseToday() }, { id: 'cnote', l: 'What was done (close-out)', t: 'area', v: o.cnote, full: 1 }, { id: 'cph', l: 'Close-out photo link (company server)', v: o.cph, full: 1 }], v => {
+    if (!v.cd || !v.cnote) { toast('Enter the close date and what was done.'); return; }
+    if (o.d && v.cd < o.d) { toast('The close date cannot be before the issue date.'); return; }
+    const rec = Object.assign({}, o, { cd: v.cd, cnote: v.cnote.slice(0, 1500), ub: S.user.email, ua: Date.now() }); if (v.cph) rec.cph = v.cph.slice(0, 500);
+    set(ref(db, 'hse/obs/' + k), rec).then(() => { log('HSE item closed', (o.ref || '') + ' · ' + (o.proj || '')); closeModal(); toast('Closed'); }).catch(fail); }); }
+
+// ── Import the HSE register Excel (the bi-weekly NCR / SOR tracking register)
+async function hseFile(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; inp.value = '';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader. Check the internet connection.'); return; }
+  let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: true }); } catch (e) { toast('Could not read that file.'); return; }
+  const out = [];
+  for (const sn of wb.SheetNames) {
+    const R = window.XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' });
+    const hi = R.findIndex(r => r.some(c => /^sl\s*no/i.test(String(c).trim())));
+    if (hi < 0) continue;
+    const H = R[hi].map(c => String(c).replace(/\s+/g, ' ').trim().toLowerCase()); const c0 = H.findIndex(h => /^sl\s*no/.test(h));
+    const at = (rx, off) => { const i = H.findIndex(h => rx.test(h)); return i >= 0 ? i : c0 + off; };
+    const C = { ref: at(/report/, 2), proj: at(/project no/, 1), co: at(/company involved/, 3), to: at(/^issued/, 4), src: at(/^source/, 5), typ: at(/^type/, 6), loc: at(/^location/, 7), desc: c0 + 8, capa: at(/^capa/, 10), d: at(/^issue date|^issue$/, 12), cd: at(/^close date|^close$/, 13), risk: at(/risk/, 14) };
+    const lab = R[hi + 2] || []; const nmS = H.findIndex(h => /near miss/.test(h)), catS = H.findIndex(h => /ncr.s.*sor.s.*trend|ncr.*trend/.test(h));
+    const dt = v => Object.prototype.toString.call(v) === '[object Date]' ? (isNaN(v) ? '' : ymd(new Date(v.getTime() + 12 * 36e5))) : (typeof v === 'number' && v > 20000 ? (() => { const d = new Date(Date.UTC(1899, 11, 30) + v * 864e5); return d.toISOString().slice(0, 10); })() : /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? String(v).slice(0, 10) : (() => { const m = /^(\d{1,2})[-\/ ]([A-Za-z]{3}|\d{1,2})[-\/ ](\d{2,4})$/.exec(String(v).trim()); if (!m) return ''; const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 }; const mo = isNaN(m[2]) ? MON[m[2].toLowerCase()] : +m[2]; let y = +m[3]; if (y < 100) y += 2000; return mo ? y + '-' + String(mo).padStart(2, '0') + '-' + String(+m[1]).padStart(2, '0') : ''; })());
+    const pick = (row, start, list) => { if (start < 0) return ''; for (let j = 0; j < list.length; j++) { const v = row[start + j]; if (v !== '' && v != null && Number(v) > 0) return list[j]; } return ''; };
+    R.slice(hi + 1).forEach(r => {
+      const desc = String(r[C.desc] || '').trim(), d = dt(r[C.d]); if (!desc || !d) return;
+      const tx = String(r[C.typ] || '').toUpperCase(), typ = /NEAR/.test(tx) ? 'NM' : /NCR/.test(tx) ? 'NCR' : 'SOR';
+      const sx = String(r[C.src] || '').toLowerCase(), src = /client/.test(sx) ? 'client' : /consult/.test(sx) ? 'consultant' : /author/.test(sx) ? 'authority' : 'internal';
+      const rk = String(r[C.risk] || '').trim().toLowerCase(), risk = rk.startsWith('h') ? 'High' : rk.startsWith('m') ? 'Medium' : rk.startsWith('l') ? 'Low' : '';
+      const proj = String(r[C.proj] || '').trim();
+      out.push({ ref: String(r[C.ref] || '').trim(), proj, site: hseFindSite(proj), co: String(r[C.co] || '').trim(), to: String(r[C.to] || '').trim(), src, typ, loc: String(r[C.loc] || '').trim(), desc, capa: String(r[C.capa] || '').trim(), d, cd: dt(r[C.cd]), risk,
+        cat: pick(r, catS, HSE_CAT), nm: typ === 'NM' ? pick(r, nmS, HSE_NM) : '' });
+    });
+  }
+  if (!out.length) { toast('No rows found. Use the HSE "NCR & SOR Tracking Register" Excel.'); return; }
+  const keyOf = o => hseNorm(o.ref) + '|' + o.d;
+  const exist = {}; hseObsList().forEach(o => { exist[keyOf(o)] = o.k; });
+  out.forEach(o => { o.ex = exist[keyOf(o)] || ''; });
+  S.ho.imp = { file: f.name, rows: out, ent: 'CKC' }; draw(); window.scrollTo(0, 0);
+}
+function vHseImport() {
+  const I = S.ho.imp, nw = I.rows.filter(r => !r.ex).length, up = I.rows.length - nw, unm = [...new Set(I.rows.filter(r => !r.site).map(r => r.proj || '(empty)'))];
+  return ph('Import HSE register', esc(I.file) + ': ' + I.rows.length + ' rows. Nothing is saved yet.') +
+    `<div class="grid g4" style="margin-bottom:16px">${[['New', nw, 'will be added'], ['Already in PEH', up, 'updated (same ref and date)'], ['Open', I.rows.filter(r => !r.cd).length, 'no close date'], ['Projects not matched', unm.length, 'kept as typed names']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')}</div>` +
+    (unm.length ? `<div class="banner">These project names don’t match a PEH site, so they are kept as typed names (man-hours can then be typed on the weekly KPI page): ${unm.map(esc).join(', ')}. To link them to registers, name the PEH sites the same way.</div>` : '') +
+    `<div class="card"><div class="row" style="gap:10px;align-items:flex-end"><div class="field" style="margin:0"><label for="hiEnt">These items belong to</label><select class="inp" id="hiEnt" data-c="hiEnt" style="width:auto"><option value="CKC" ${I.ent === 'CKC' ? 'selected' : ''}>CKC Building Contracting</option><option value="CK" ${I.ent === 'CK' ? 'selected' : ''}>CK Architecture Interiors</option></select></div>
+     <button class="btn fill wi" data-a="hseImpGo">Import ${I.rows.length} rows</button><button class="btn text" data-a="hseImpCancel">Cancel</button></div>
+     <div class="tw mt" style="max-height:460px;overflow:auto"><table><thead><tr><th>Ref</th><th>Date</th><th>Project</th><th>Type</th><th>Issue</th><th>Issued to</th><th>Risk</th><th>Closed</th><th></th></tr></thead><tbody>${I.rows.map(r => `<tr><td>${esc(r.ref)}</td><td>${fmtD(r.d)}</td><td>${esc(r.proj)}${r.site ? '' : ' <span class="mmeta">(not matched)</span>'}</td><td>${r.typ}<div class="mmeta">${esc(r.cat || r.nm)}</div></td><td>${esc(r.desc.slice(0, 80))}</td><td>${esc(r.to)}</td><td>${esc(r.risk || '—')}</td><td>${r.cd ? fmtD(r.cd) : '—'}</td><td>${r.ex ? chip('', 'update') : chip('pri', 'new')}</td></tr>`).join('')}</tbody></table></div>
+     <p class="note">Photos inside the Excel are not imported: add the server link to each item when needed. Due dates are set from the risk (High same day, Medium 48 hours, Low one week).</p></div>`;
+}
+async function hseImpGo() {
+  const I = S.ho.imp; if (!I) return; const upd = {}; let n = 0;
+  I.rows.forEach(r => { const id = r.ex || push(ref(db, 'hse/obs')).key; const base = r.ex ? Object.assign({}, S.hse.obs[r.ex]) : { by: S.user.email, at: Date.now() };
+    const rec = Object.assign(base, { ent: I.ent, ref: r.ref.slice(0, 40), site: r.site, proj: (r.site ? (S.sites[r.site] || {}).name : r.proj).slice(0, 120), typ: r.typ, src: r.src, area: 'Safety', risk: r.risk, cat: r.cat, nm: r.nm, co: r.co.slice(0, 120), to: r.to.slice(0, 120), loc: r.loc.slice(0, 120), d: r.d, cd: r.cd, desc: r.desc.slice(0, 1500), capa: r.capa.slice(0, 1500), imp: 'register', ub: S.user.email, ua: Date.now() });
+    Object.keys(rec).forEach(x => { if (rec[x] === '' || rec[x] == null) delete rec[x]; }); upd['hse/obs/' + id] = rec; n++; });
+  if (!confirm('Save ' + n + ' items from the register?')) return;
+  try { await update(ref(db), upd); log('HSE register imported', I.file + ' · ' + n + ' items'); toast('Imported ' + n); S.ho.imp = null; draw(); } catch (e) { fail(e); }
+}
+
+// ── Weekly HSE KPIs
+const HSE_KF = [['lti', 'LTI'], ['mtc', 'MTC'], ['fac', 'FAC'], ['ld', 'Lost days'], ['ip', 'Insp. planned'], ['ic', 'Insp. done'], ['ar', 'Audit findings'], ['ac', 'Findings closed'], ['tp', 'Trainings planned'], ['tc', 'Trainings done'], ['tbp', 'Toolbox planned'], ['tbd', 'Toolbox done'], ['tba', 'Toolbox attend. %'], ['pt', 'PTW / JSA checks'], ['pc', 'PTW / JSA compliant'], ['ei', 'Env. incidents'], ['eo', 'Env. actions opened'], ['ec', 'Env. actions closed']];
+function vHseKpi() {
+  const can = canHSE(), t = hseToday(); if (!S.hk.week) S.hk.week = addDays(hseMon(t), -7);
+  const W = S.hk.week, sun = addDays(W, 6); hseNeedMonths([W]);
+  const rows = (S.hse.kpi || {})[W] || {};
+  const keys = [...new Set(hseActiveSites().concat(Object.keys(rows)).concat(hseObsList().filter(o => o.d >= W && o.d <= sun).map(hseSiteKeyOf)))].filter(sk => !(S.sites[sk] && S.sites[sk].active === false))
+    .sort((a, b) => String(S.sites[a] ? S.sites[a].name : a).localeCompare(S.sites[b] ? S.sites[b].name : b));
+  const nameOf = sk => S.sites[sk] ? S.sites[sk].name : ((hseObsList().find(o => hseSiteKeyOf(o) === sk) || {}).proj || (rows[sk] || {}).name || sk);
+  const line = sk => { const e = rows[sk] || {}, auto = hseMH(sk, W), F = hseWeekFig(W, sk), K = hseKpiVals(F, hseObsList().filter(o => hseSiteKeyOf(o) === sk));
+    const inp = (f, w) => can ? `<input class="inp n wi" style="width:${w || 64}px" inputmode="decimal" id="hk_${sk}_${f}" value="${e[f] == null ? '' : esc(e[f])}">` : (e[f] == null ? '—' : esc(e[f]));
+    return `<tr><td style="min-width:150px"><b style="font-weight:500">${esc(nameOf(sk))}</b><div class="mmeta">${e.by ? 'saved by ' + esc(e.by) : '<span style="color:var(--warn)">not entered</span>'}</div></td>
+      <td class="num">${auto ? `<b>${auto.mh.toLocaleString('en-US')}</b><div class="mmeta">from registers</div>` : inp('mh', 80) + '<div class="mmeta">typed</div>'}</td><td class="num">${auto ? auto.hc : inp('hc')}</td><td class="num">${F.nm}<div class="mmeta">from register</div></td>
+      ${HSE_KF.map(([f]) => `<td class="num">${inp(f)}</td>`).join('')}
+      <td>${['ltifr', 'trir', 'insp', 'tbt'].map(k => { const v = K[k]; const r = hseRag(k, v); return v == null ? '' : `<div style="white-space:nowrap">${chip(r, (HSE_KPIS.find(x => x[0] === k)[1].split(' ')[0]) + ' ' + (Math.round(v * 100) / 100))}</div>`; }).join('')}</td>
+      <td class="no-print">${can ? `<button class="btn tonal sm wi" data-a="hseKpiSave" data-v="${esc(sk)}">Save</button>` : ''}</td></tr>`; };
+  return ph('Weekly HSE KPIs', 'One line per project per week (Monday to Sunday), due every Thursday for the week before. Man-hours, headcount and near misses fill themselves; type the rest.',
+      `<div class="row no-print"><button class="icon-btn" data-a="hkShift" data-v="-7" aria-label="Previous week">${svg('left')}</button><span class="plabel">Week of ${fmtD(W)}</span><button class="icon-btn" data-a="hkShift" data-v="7" aria-label="Next week">${svg('right')}</button></div>`) +
+    (S.hseLoading ? '<div class="banner">Loading the site registers…</div>' : '') +
+    `<div class="card"><div class="tw"><table><thead><tr><th>Project / site</th><th class="num">Man-hours</th><th class="num">Headcount</th><th class="num">Near misses</th>${HSE_KF.map(([, l]) => `<th class="num">${l}</th>`).join('')}<th>KPIs</th><th></th></tr></thead><tbody>${keys.map(line).join('') || `<tr><td colspan="${HSE_KF.length + 6}"><div class="empty"><b>No active sites this week</b></div></td></tr>`}</tbody></table></div>
+     <p class="note">LTI = lost time injury, MTC = medical treatment case, FAC = first aid case. LTIFR = LTI × 1,000,000 ÷ man-hours; TRIR = (LTI + MTC + FAC) × 200,000 ÷ man-hours, as in the HSE workbook. Injury details are kept in the HSE incident reports, not here.</p></div>`;
+}
+function hseKpiSave(sk) {
+  const W = S.hk.week, rec = { by: S.user.email, at: Date.now() }; let bad = '';
+  ['mh', 'hc'].concat(HSE_KF.map(x => x[0])).forEach(f => { const el = $('#hk_' + sk + '_' + f); if (!el) return; const v = num(el.value); if (Number.isNaN(v) || (v != null && v < 0)) bad = f; else if (v != null) rec[f] = v; });
+  if (bad) { toast('Numbers only, and not negative.'); return; }
+  if (rec.tba != null && rec.tba > 100) { toast('Toolbox attendance is a percentage (0 to 100).'); return; }
+  if (sk.startsWith('x_')) rec.name = String((hseObsList().find(o => hseSiteKeyOf(o) === sk) || {}).proj || sk).slice(0, 120);
+  set(ref(db, 'hse/kpi/' + W + '/' + sk), rec).then(() => { log('HSE weekly KPIs saved', (S.sites[sk] ? S.sites[sk].name : sk) + ' · week of ' + W); toast('Saved'); }).catch(fail);
+}
+Object.assign(ACT, {
+  hseEdit: b => hseEdit(b.dataset.v), hseClose: b => hseClose(b.dataset.v),
+  hseDel: b => { const o = S.hse.obs[b.dataset.v]; if (!o || !confirm('Delete ' + (o.ref || 'this item') + '? This cannot be undone.')) return; remove(ref(db, 'hse/obs/' + b.dataset.v)).then(() => { log('HSE item deleted', o.ref || ''); closeModal(); toast('Deleted'); }).catch(fail); },
+  hseImpGo, hseImpCancel: () => { S.ho.imp = null; draw(); }, hseKpiSave: b => hseKpiSave(b.dataset.v),
+  hkShift: b => { S.hk.week = addDays(S.hk.week, Number(b.dataset.v)); draw(); }
+});
+['hseEdit', 'hseClose', 'hseDel', 'hseImpGo', 'hseKpiSave'].forEach(a => WRITE.add(a));
+document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
+  if (c === 'ho') { S.ho[t.dataset.f] = t.value; draw(); } else if (c === 'hd') { S.hd[t.dataset.f] = t.value; draw(); }
+  else if (c === 'hseFile') hseFile(t); else if (c === 'hiEnt') { S.ho.imp.ent = t.value; } });
+
 </script>
 </body>
 </html>
