@@ -2606,11 +2606,13 @@ async function dxTemplate() {
   ckc.forEach(([k, p], i) => { const r = C.getRow(6 + i); r.values = [k, p.empId || '', p.name, p.desig || nm('trades', p.trade), catName(p.cat), dxSiteName(p.site) || null, null, null, null, null];
     [2, 3, 4, 5].forEach(c => { r.getCell(c).fill = fill(GREY); }); [6, 7, 8, 9, 10].forEach(c => { r.getCell(c).fill = fill(YEL); r.getCell(c).protection = { locked: false }; });
     for (let c = 1; c <= 10; c++) r.getCell(c).border = box;
-    r.getCell(6).dataValidation = { type: 'list', allowBlank: true, formulae: [LS], showErrorMessage: true, error: 'Choose a site from the list.' };
-    r.getCell(7).dataValidation = { type: 'list', allowBlank: true, formulae: [LST], showErrorMessage: true, error: 'Choose a status from the list.' };
-    r.getCell(8).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 24], showErrorMessage: true, error: 'Hours: 0 to 24.' };
-    r.getCell(9).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 16], showErrorMessage: true, error: 'Overtime: 0 to 16.' }; });
+  });
   const cEnd = 5 + Math.max(1, ckc.length);
+  // drop-downs set once per column range (one rule each, no overlaps: Excel drops overlapping rules)
+  C.dataValidations.add(`F6:F${cEnd}`, { type: 'list', allowBlank: true, formulae: [LS], showErrorMessage: true, error: 'Choose a site from the list.' });
+  C.dataValidations.add(`G6:G${cEnd}`, { type: 'list', allowBlank: true, formulae: [LST], showErrorMessage: true, error: 'Choose a status from the list.' });
+  C.dataValidations.add(`H6:H${cEnd}`, { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 24], showErrorMessage: true, error: 'Hours: 0 to 24.' });
+  C.dataValidations.add(`I6:I${cEnd}`, { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 16], showErrorMessage: true, error: 'Overtime: 0 to 16.' });
   C.getColumn(1).hidden = true;
   C.addConditionalFormatting({ ref: `F6:G${cEnd}`, rules: [{ type: 'expression', formulae: ['OR(AND($F6="",$G6<>""),AND($G6="",$F6<>""))'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } } }] });
   C.addConditionalFormatting({ ref: `G6:G${cEnd}`, rules: [{ type: 'expression', formulae: ['$G6=""'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } } }] });
@@ -2630,14 +2632,15 @@ async function dxTemplate() {
     r.getCell(6).value = { formula: `IF(E${rr}="","",IFERROR(VLOOKUP(E${rr},${LCT},2,FALSE),"?"))` };
     [2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13].forEach(c => { r.getCell(c).fill = fill(YEL); r.getCell(c).protection = { locked: false }; }); r.getCell(6).fill = fill(GREY);
     for (let c = 1; c <= 13; c++) r.getCell(c).border = box;
-    r.getCell(4).dataValidation = { type: 'list', allowBlank: true, formulae: [LN], showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Other nationality?', error: 'Not in the list. Click Yes to keep it.' };
-    r.getCell(5).dataValidation = { type: 'list', allowBlank: true, formulae: [LC], showErrorMessage: true, error: 'Choose the company from the list. A new company must first be added in PEH by HR.' };
-    r.getCell(7).dataValidation = { type: 'list', allowBlank: true, formulae: [LD], showErrorMessage: true, error: 'Choose Emirates ID, Passport or Labour card.' };
-    r.getCell(9).dataValidation = { type: 'list', allowBlank: true, formulae: [LS], showErrorMessage: true, error: 'Choose a site from the list.' };
-    r.getCell(10).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Present,Absent"'], showErrorMessage: true, error: 'Choose Present or Absent.' };
-    r.getCell(11).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 24], showErrorMessage: true, error: 'Hours: 0 to 24.' };
-    r.getCell(12).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 16], showErrorMessage: true, error: 'Overtime: 0 to 16.' }; }
+  }
   const oEnd = 3 + nRows; O.getColumn(1).hidden = true;
+  O.dataValidations.add(`D4:D${oEnd}`, { type: 'list', allowBlank: true, formulae: [LN], showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Other nationality?', error: 'Not in the list. Click Yes to keep it.' });
+  O.dataValidations.add(`E4:E${oEnd}`, { type: 'list', allowBlank: true, formulae: [LC], showErrorMessage: true, error: 'Choose the company from the list. A new company must first be added in PEH by HR.' });
+  O.dataValidations.add(`G4:G${oEnd}`, { type: 'list', allowBlank: true, formulae: [LD], showErrorMessage: true, error: 'Choose Emirates ID, Passport or Labour card.' });
+  O.dataValidations.add(`I4:I${oEnd}`, { type: 'list', allowBlank: true, formulae: [LS], showErrorMessage: true, error: 'Choose a site from the list.' });
+  O.dataValidations.add(`J4:J${oEnd}`, { type: 'list', allowBlank: true, formulae: ['"Present,Absent"'], showErrorMessage: true, error: 'Choose Present or Absent.' });
+  O.dataValidations.add(`K4:K${oEnd}`, { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 24], showErrorMessage: true, error: 'Hours: 0 to 24.' });
+  O.dataValidations.add(`L4:L${oEnd}`, { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 16], showErrorMessage: true, error: 'Overtime: 0 to 16.' });
   const redS = { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } };
   O.addConditionalFormatting({ ref: `C4:J${oEnd}`, rules: [{ type: 'expression', formulae: ['AND($B4<>"",C4="",COLUMN(C4)<>6,OR(COLUMN(C4)<9,$I4<>"",$J4<>""))'], style: redS }] });
   O.addConditionalFormatting({ ref: `H4:H${oEnd}`, rules: [{ type: 'expression', formulae: [`AND($H4<>"",COUNTIF($H$4:$H$${oEnd},$H4)>1)`], style: redS }] });
