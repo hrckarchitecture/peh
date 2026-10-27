@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.8. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v3.9. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -357,6 +357,8 @@ function startData() {
     return;
   }
   if (isAdmin() || isCeo()) watch('hse', v => S.hse = { obs: v.obs || {}, kpi: v.kpi || {} });
+  if (isAdmin() || isCeo() || isFin()) watch('subw', v => S.subw = v || {});
+  if (isAdmin()) watch('wdocs', v => S.wdocs = v || {});
   if (isTK()) {
     tkSites().forEach(sid => subs.push(onValue(query(ref(db, 'people'), orderByChild('site'), equalTo(sid)), s => { S.peopleBySite[sid] = s.val() || {}; S.people = Object.assign({}, ...Object.values(S.peopleBySite)); render(); }, e => console.warn('people', e && e.code))));
     return;
@@ -399,7 +401,7 @@ function navItems() {
   n.push(['cards', 'Scorecards', 'cards']);
   n.push(['delays', 'Delay log', 'delay']);
   if (isFin() || isAdmin()) n.push(['finance', 'Finance check', 'fin']);
-  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) n.push(['register', 'Site register', 'cards']); n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
+  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) { n.push(['register', 'Site register', 'cards']); n.push(['dayx', 'Daily register from Excel', 'cards']); } n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
   n.push(['sep', 'Roles and KPIs']); n.push(['units', 'Business units', 'fin']); n.push(['roles', 'Role library', 'cards']); if (isAdmin() || isCeo()) n.push(['assign', 'Who does what', 'me']); n.push(['links', 'Department links', 'link']); n.push(['kpilib', 'KPI library', 'chart']);
   if (isAdmin() || isCeo()) { n.push(['sep', 'Health and safety']); n.push(['hseov', 'HSE overview', 'home']); n.push(['hseobs', 'Observations and NCRs', 'delay']); n.push(['hsekpi', 'Weekly HSE KPIs', 'chart']); }
   if (isAdmin()) { n.push(['sep', 'Admin']); n.push(['people', 'People and sites', 'me']); n.push(['access', 'Access', 'key']); n.push(['setup', 'Scorecard setup', 'cog']); n.push(['activity', 'Activity', 'hist']); }
@@ -431,7 +433,7 @@ function draw() {
   const mmN = seesAssign() ? roleMismatches().length : 0;
   $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
     `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'assign' && mmN ? `<span class="count">${mmN}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
-  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib, hseov: vHseOv, hseobs: vHseObs, hsekpi: vHseKpi }[S.view] || (isTK() ? vRegister : isHSE() ? vHseOv : vCards);
+  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib, hseov: vHseOv, hseobs: vHseObs, hsekpi: vHseKpi, dayx: vDayx }[S.view] || (isTK() ? vRegister : isHSE() ? vHseOv : vCards);
   $('#main').innerHTML = `<div class="page">${costReminder()}${hseBanner()}${V()}</div>`;
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
@@ -685,7 +687,7 @@ function saveAccess(u) {
   set(ref(db, 'access/' + u), rec).then(() => { log('Access set', rec.email + ' → ' + role + (ro && role === 'admin' ? ' (view only)' : '') + (fin ? ' + finance' : '') + (rec.ownerId ? ' · ' + (S.owners[rec.ownerId] || {}).name : '') + (role === 'timekeeper' ? ' · ' + Object.keys(sites).map(k => nm('sites', k)).join(', ') : '')); toast('Access saved'); }).catch(fail);
 }
 function exportBackup() {
-  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units', 'rcheck', 'hse'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
+  Promise.all(['owners', 'measures', 'entries', 'locks', 'settings', 'delays', 'users', 'access', 'audit', 'people', 'sites', 'trades', 'companies', 'rates', 'crates', 'att', 'closed', 'depts', 'roles', 'rassign', 'links', 'units', 'rcheck', 'hse', 'subw', 'wdocs'].map(k => get(ref(db, k)).then(s => [k, s.val()]))).then(r => {
     const blob = new Blob([JSON.stringify(Object.fromEntries(r), null, 1)], { type: 'application/json' });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'PEH-backup-' + new Date().toISOString().slice(0, 10) + '.json'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
     log('Backup downloaded', ''); }).catch(fail);
@@ -851,7 +853,7 @@ function vManpower() {
   const tile = (l, v, s) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
   const compRows = Object.entries(comp).sort((a, b) => b[1].n - a[1].n).map(([c, x]) => `<tr><td>${esc(nm('companies', c))}</td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td><td class="num">${x.n}</td><td style="color:var(--muted)">${[...x.sites].map(s => esc(nm('sites', s))).join(', ')}</td></tr>`).join('');
   return ph('Daily report', 'Who was deployed where, for one day. Built from the site registers, so the totals always add up.',
-      `<div class="row no-print"><input class="inp" type="date" data-c="mpDate" value="${D}" style="width:auto"><button class="btn tonal" data-a="mpPdf">Download PDF</button><button class="btn text" data-a="print">Print</button></div>`) +
+      `<div class="row no-print"><input class="inp" type="date" data-c="mpDate" value="${D}" style="width:auto"><button class="btn tonal" data-a="mpPdf">Download PDF</button><button class="btn tonal" data-a="mpDetPdf">Detailed PDF (names)</button><button class="btn tonal" data-a="mpXlsx">Excel</button><button class="btn text" data-a="print">Print</button></div>`) +
     `<div class="grid g4">${tile('Total deployed', total, fmtD(D))}${tile('CKC present', T.staff + T.labour, T.staff + ' staff · ' + T.labour + ' labour')}${tile('Supply and subcontractors', T.supply + T.sub, T.supply + ' supply · ' + T.sub + ' subcontract')}${tile('Registers missing', T.missing, 'of ' + sites.length + ' sites')}</div>` +
     `<div class="card mt"><h2>By site</h2><p class="sub">${fmtH(T.h)} normal hours and ${fmtH(T.ot)} overtime hours recorded for CKC and supply labour.</p><div class="tw"><table><thead><tr><th>Site</th><th class="num">CKC staff</th><th class="num">CKC labour</th><th class="num">Supply</th><th class="num">Subcontract</th><th class="num">Total</th><th class="num">Absent / leave</th><th>Register</th></tr></thead><tbody>${rows}</tbody>
      <tfoot><tr><td><b>Total</b></td><td class="num"><b>${T.staff}</b></td><td class="num"><b>${T.labour}</b></td><td class="num"><b>${T.supply}</b></td><td class="num"><b>${T.sub}</b></td><td class="num"><b>${total}</b></td><td class="num"><b>${T.abs + T.lv}</b></td><td></td></tr></tfoot></table></div></div>` +
@@ -968,7 +970,7 @@ function editPerson(k) {
     if (r.cat === 'supply' && !r.company) { toast('Choose the supply company.'); return; }
     if (r.joined && !/^\d{4}-\d{2}-\d{2}$/.test(r.joined)) { toast('Joined date must look like 2026-10-20.'); return; }
     if (r.empId && Object.entries(S.people).some(([i, x]) => i !== k && x.empId && x.empId.toLowerCase() === r.empId.toLowerCase())) { toast('Another person already has this ID.'); return; }
-    const rec = { name: r.name.slice(0, 120), cat: r.cat, status: r.status }; ['empId', 'trade', 'site', 'dept', 'desig', 'joined', 'entity'].forEach(f => { if (r[f]) rec[f] = String(r[f]).slice(0, 120); }); if (r.cat === 'supply') rec.company = r.company;
+    const rec = { name: r.name.slice(0, 120), cat: r.cat, status: r.status }; ['empId', 'trade', 'site', 'dept', 'desig', 'joined', 'entity'].forEach(f => { if (r[f]) rec[f] = String(r[f]).slice(0, 120); }); if (r.cat === 'supply') rec.company = r.company; if (k && S.people[k] && S.people[k].nat) rec.nat = S.people[k].nat; // keep nationality from the daily register
     const id = k || push(ref(db, 'people')).key;
     set(ref(db, 'people/' + id), rec).then(() => { log(k ? 'Person edited' : 'Person added', rec.name + (rec.empId ? ' · ' + rec.empId : '')); closeModal(); toast('Saved'); }).catch(fail);
   });
@@ -2531,6 +2533,314 @@ Object.assign(ACT, {
 document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
   if (c === 'ho') { S.ho[t.dataset.f] = t.value; draw(); } else if (c === 'hd') { S.hd[t.dataset.f] = t.value; draw(); }
   else if (c === 'hseFile') hseFile(t); else if (c === 'hiEnt') { S.ho.imp.ent = t.value; } });
+
+
+// ══ v3.9: Daily register from Excel (timekeeper template) + outside workers ═══════════════════
+// Ajmal fills in the PEH daily Excel template; a super user uploads it here. PEH checks it, shows a
+// review, then saves the day's site registers. Supply and subcontract workers are kept by name with
+// designation, nationality, company and one document number (document numbers: super users only).
+// Supply workers are people with category "supply" (so their hours are costed as before);
+// subcontract workers are kept in "subw" and counted per company in the register (sub headcount).
+S.subw = {}; S.wdocs = {};
+S.dx = { date: today(), imp: null, q: '' };
+const DX_PW = 'PEH2026hr';
+const DX_DOC = [['EID', 'Emirates ID'], ['PP', 'Passport'], ['LC', 'Labour card']];
+const DX_NAT = ['India', 'Pakistan', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Philippines', 'Egypt', 'Syria', 'Jordan', 'Lebanon', 'Sudan', 'Uganda', 'Kenya', 'Ghana', 'Nigeria', 'Afghanistan', 'China', 'United Arab Emirates', 'Other'];
+const dxDocN = s => String(s || '').toUpperCase().replace(/[\s-]/g, '');
+const dxNorm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const dxSiteName = k => (S.sites[k] || {}).name || '';
+function dxDocKey() { const m = {}; Object.entries(S.wdocs || {}).forEach(([k, d]) => { if (d && d.n) m[dxDocN(d.n)] = k; }); return m; }
+function dxOutside() { // all outside workers: [key, {name, desig, nat, co, kind, status}]
+  const out = [];
+  Object.entries(S.people || {}).forEach(([k, p]) => { if (p.cat === 'supply') out.push(['P:' + k, { name: p.name, desig: p.desig || '', nat: p.nat || '', co: p.company || '', kind: 'supply', status: p.status, site: p.site || '' }]); });
+  Object.entries(S.subw || {}).forEach(([k, p]) => out.push(['S:' + k, { name: p.name, desig: p.desig || '', nat: p.nat || '', co: p.co || '', kind: 'sub', status: p.status, site: p.site || '' }]));
+  return out;
+}
+const dxStatLabel = c => (STAT.find(x => x[0] === c) || [c, c])[1];
+async function dxLoadExcelJs() {
+  if (window.ExcelJS) return;
+  try { await loadJs('https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'); } catch (e) { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js'); }
+}
+// ── 1. Template for the timekeeper (Excel, locked, drop-downs, checks)
+async function dxTemplate() {
+  const D = S.dx.date || today();
+  try { await dxLoadExcelJs(); } catch (e) { toast('Could not load the Excel tool. Check the internet connection.'); return; }
+  const wb = new window.ExcelJS.Workbook(); wb.creator = 'PEH';
+  const NAVY = 'FF1C3557', YEL = 'FFFFF2CC', BLUE = 'FFDDEBF7', GREY = 'FFEDEDED', RED = 'FFF4CCCC';
+  const fill = c => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } });
+  const thin = { style: 'thin', color: { argb: 'FFBFC7D1' } }, box = { top: thin, left: thin, bottom: thin, right: thin };
+  const sites = Object.entries(S.sites).filter(([k, s]) => s.active !== false).sort(byName).map(([k, s]) => s.name);
+  const cos = Object.entries(S.companies).sort(byName).map(([k, c]) => [c.name, c.kind === 'sub' ? 'Subcontract' : 'Supply']);
+  const stats = STAT.map(x => x[1]);
+  // Lists (hidden)
+  const L = wb.addWorksheet('Lists', { state: 'veryHidden' });
+  L.getRow(1).values = ['Sites', 'Companies', 'Type', 'Status', 'Document', 'Nationality'];
+  const maxL = Math.max(sites.length, cos.length, stats.length, DX_DOC.length, DX_NAT.length);
+  for (let i = 0; i < maxL; i++) L.getRow(i + 2).values = [sites[i] || null, (cos[i] || [])[0] || null, (cos[i] || [])[1] || null, stats[i] || null, (DX_DOC[i] || [])[1] || null, DX_NAT[i] || null];
+  const rng = (col, n) => `Lists!$${col}$2:$${col}$${Math.max(2, n + 1)}`;
+  const LS = rng('A', sites.length), LC = rng('B', cos.length), LCT = `Lists!$B$2:$C$${Math.max(2, cos.length + 1)}`, LST = rng('D', stats.length), LD = rng('E', DX_DOC.length), LN = rng('F', DX_NAT.length);
+  // How to fill
+  const H = wb.addWorksheet('How to fill', { properties: { tabColor: { argb: NAVY } } });
+  H.getColumn(1).width = 110;
+  ['PEH daily register: how to fill', '', '1. Tab "CKC staff": type the date at the top (it is used for the whole file).',
+   '2. For every CKC person: check the Site and choose the Status (Present, Absent, Sick leave, Annual leave, Unpaid leave, Comp. off, Work from home, Long leave, Not yet in office).',
+   '   Hours and overtime: only fill them in if they are different from a normal day. Empty = normal hours.',
+   '3. Tab "Supply and subcontract": one line per outside worker. Fill in name, designation, nationality, company, one document (Emirates ID, passport or labour card) and its number, the site and Present / Absent.',
+   '   New worker: add a new line at the bottom. A worker who came before: keep the same line (PEH recognises the document number).',
+   '4. Tab "Check": totals per site and the number of lines with something missing. Red cells = something is missing.',
+   '5. Every day: copy yesterday\'s file and change only what is different. Download a fresh template from PEH when staff or sites change.',
+   '6. Save the file and send it to HR. HR uploads it into PEH. Nothing changes in PEH until HR has checked and saved it.',
+   '', 'Yellow = to fill in. Grey = from PEH, do not change. Document numbers are personal data: keep this file inside the company.']
+    .forEach((t, i) => { const c = H.getCell(i + 1, 1); c.value = t; c.alignment = { wrapText: true, vertical: 'top' }; if (i === 0) c.font = { bold: true, size: 14, color: { argb: NAVY } }; });
+  // CKC staff
+  const C = wb.addWorksheet('CKC staff', { views: [{ state: 'frozen', ySplit: 5 }] });
+  C.columns = [{ width: 4 }, { width: 13 }, { width: 30 }, { width: 26 }, { width: 13 }, { width: 28 }, { width: 18 }, { width: 13 }, { width: 11 }, { width: 28 }];
+  C.getCell('A1').value = 'CKC staff · daily register'; C.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
+  C.getCell('A2').value = 'Date'; C.getCell('B2').value = new Date(D + 'T12:00:00'); C.getCell('B2').numFmt = 'dd/mm/yyyy';
+  C.getCell('A3').value = 'Prepared by'; C.mergeCells('B3:C3');
+  ['B2', 'B3'].forEach(a => { C.getCell(a).fill = fill(YEL); C.getCell(a).border = box; C.getCell(a).protection = { locked: false }; });
+  C.getCell('B2').dataValidation = { type: 'date', operator: 'greaterThan', formulae: [new Date('2025-01-01')], showErrorMessage: true, error: 'Type a date, for example 27/10/2026.' };
+  C.getRow(5).values = ['PEH key', 'Emp ID', 'Name', 'Designation', 'Category', 'Site', 'Status', 'Hours (only if different)', 'Overtime hours', 'Remarks'];
+  C.getRow(5).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill(NAVY); c.alignment = { wrapText: true, vertical: 'middle' }; c.border = box; }); C.getRow(5).height = 32;
+  const ckc = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort((a, b) => dxSiteName(a[1].site).localeCompare(dxSiteName(b[1].site)) || byName(a, b));
+  ckc.forEach(([k, p], i) => { const r = C.getRow(6 + i); r.values = [k, p.empId || '', p.name, p.desig || nm('trades', p.trade), catName(p.cat), dxSiteName(p.site) || null, null, null, null, null];
+    [2, 3, 4, 5].forEach(c => { r.getCell(c).fill = fill(GREY); }); [6, 7, 8, 9, 10].forEach(c => { r.getCell(c).fill = fill(YEL); r.getCell(c).protection = { locked: false }; });
+    for (let c = 1; c <= 10; c++) r.getCell(c).border = box;
+    r.getCell(6).dataValidation = { type: 'list', allowBlank: true, formulae: [LS], showErrorMessage: true, error: 'Choose a site from the list.' };
+    r.getCell(7).dataValidation = { type: 'list', allowBlank: true, formulae: [LST], showErrorMessage: true, error: 'Choose a status from the list.' };
+    r.getCell(8).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 24], showErrorMessage: true, error: 'Hours: 0 to 24.' };
+    r.getCell(9).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 16], showErrorMessage: true, error: 'Overtime: 0 to 16.' }; });
+  const cEnd = 5 + Math.max(1, ckc.length);
+  C.getColumn(1).hidden = true;
+  C.addConditionalFormatting({ ref: `F6:G${cEnd}`, rules: [{ type: 'expression', formulae: ['OR(AND($F6="",$G6<>""),AND($G6="",$F6<>""))'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } } }] });
+  C.addConditionalFormatting({ ref: `G6:G${cEnd}`, rules: [{ type: 'expression', formulae: ['$G6=""'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } } }] });
+  await C.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatRows: true });
+  // Supply and subcontract
+  const O = wb.addWorksheet('Supply and subcontract', { views: [{ state: 'frozen', ySplit: 3 }] });
+  O.columns = [{ width: 4 }, { width: 28 }, { width: 22 }, { width: 16 }, { width: 26 }, { width: 13 }, { width: 15 }, { width: 20 }, { width: 26 }, { width: 12 }, { width: 11 }, { width: 10 }, { width: 24 }];
+  O.getCell('A1').value = 'Supply and subcontract workers · date:'; O.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
+  O.getCell('F1').value = { formula: "'CKC staff'!B2" }; O.getCell('F1').numFmt = 'dd/mm/yyyy'; O.getCell('F1').font = { bold: true, size: 14 };
+  O.getRow(3).values = ['PEH key', 'Name', 'Designation', 'Nationality', 'Company', 'Type', 'Document', 'Document number', 'Site', 'Present / Absent', 'Hours (only if different)', 'Overtime hours', 'Remarks'];
+  O.getRow(3).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill(NAVY); c.alignment = { wrapText: true, vertical: 'middle' }; c.border = box; }); O.getRow(3).height = 32;
+  const docs = S.wdocs || {};
+  const known = dxOutside().filter(([k, w]) => w.status !== 'left').sort((a, b) => String(nm('companies', a[1].co)).localeCompare(nm('companies', b[1].co)) || String(a[1].name).localeCompare(b[1].name));
+  const nRows = known.length + 300;
+  for (let i = 0; i < nRows; i++) { const rr = 4 + i, r = O.getRow(rr); const kw = known[i];
+    if (kw) { const [k, w] = kw, dk = k.slice(2), d = docs[(k[0] === 'S' ? 'S_' : '') + dk] || {}; r.values = [k, w.name, w.desig || null, w.nat || null, nm('companies', w.co) === '(not in list)' ? null : nm('companies', w.co), null, d.t ? (DX_DOC.find(x => x[0] === d.t) || [0, null])[1] : null, d.n || null, null, null, null, null, null]; }
+    r.getCell(6).value = { formula: `IF(E${rr}="","",IFERROR(VLOOKUP(E${rr},${LCT},2,FALSE),"?"))` };
+    [2, 3, 4, 5, 7, 8, 9, 10, 11, 12, 13].forEach(c => { r.getCell(c).fill = fill(YEL); r.getCell(c).protection = { locked: false }; }); r.getCell(6).fill = fill(GREY);
+    for (let c = 1; c <= 13; c++) r.getCell(c).border = box;
+    r.getCell(4).dataValidation = { type: 'list', allowBlank: true, formulae: [LN], showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Other nationality?', error: 'Not in the list. Click Yes to keep it.' };
+    r.getCell(5).dataValidation = { type: 'list', allowBlank: true, formulae: [LC], showErrorMessage: true, error: 'Choose the company from the list. A new company must first be added in PEH by HR.' };
+    r.getCell(7).dataValidation = { type: 'list', allowBlank: true, formulae: [LD], showErrorMessage: true, error: 'Choose Emirates ID, Passport or Labour card.' };
+    r.getCell(9).dataValidation = { type: 'list', allowBlank: true, formulae: [LS], showErrorMessage: true, error: 'Choose a site from the list.' };
+    r.getCell(10).dataValidation = { type: 'list', allowBlank: true, formulae: ['"Present,Absent"'], showErrorMessage: true, error: 'Choose Present or Absent.' };
+    r.getCell(11).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 24], showErrorMessage: true, error: 'Hours: 0 to 24.' };
+    r.getCell(12).dataValidation = { type: 'decimal', operator: 'between', allowBlank: true, formulae: [0, 16], showErrorMessage: true, error: 'Overtime: 0 to 16.' }; }
+  const oEnd = 3 + nRows; O.getColumn(1).hidden = true;
+  const redS = { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } };
+  O.addConditionalFormatting({ ref: `C4:J${oEnd}`, rules: [{ type: 'expression', formulae: ['AND($B4<>"",C4="",COLUMN(C4)<>6,OR(COLUMN(C4)<9,$I4<>"",$J4<>""))'], style: redS }] });
+  O.addConditionalFormatting({ ref: `H4:H${oEnd}`, rules: [{ type: 'expression', formulae: [`AND($H4<>"",COUNTIF($H$4:$H$${oEnd},$H4)>1)`], style: redS }] });
+  O.addConditionalFormatting({ ref: `I4:J${oEnd}`, rules: [{ type: 'expression', formulae: ['OR(AND($I4<>"",$J4=""),AND($J4<>"",$I4=""))'], style: redS }] });
+  await O.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatRows: true });
+  // Check
+  const K = wb.addWorksheet('Check');
+  K.columns = [{ width: 30 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 16 }, { width: 12 }];
+  K.getCell('A1').value = 'Check before sending'; K.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
+  const cR = `'CKC staff'!$F$6:$F$${cEnd}`, cS = `'CKC staff'!$G$6:$G$${cEnd}`, oS = `'Supply and subcontract'!$I$4:$I$${oEnd}`, oT = `'Supply and subcontract'!$F$4:$F$${oEnd}`, oA = `'Supply and subcontract'!$J$4:$J$${oEnd}`, oN = `'Supply and subcontract'!$B$4:$B$${oEnd}`;
+  K.getCell('A3').value = 'CKC staff without a status'; K.getCell('B3').value = { formula: `COUNTIF(${cS},"")` };
+  K.getCell('A4').value = 'Outside workers with name but no site / attendance'; K.getCell('B4').value = { formula: `SUMPRODUCT((${oN}<>"")*((${oS}="")+(${oA}="")>0))` };
+  K.getCell('A5').value = 'Duplicate document numbers'; K.getCell('B5').value = { formula: `SUMPRODUCT(('Supply and subcontract'!$H$4:$H$${oEnd}<>"")*(COUNTIF('Supply and subcontract'!$H$4:$H$${oEnd},'Supply and subcontract'!$H$4:$H$${oEnd})>1))` };
+  ['B3', 'B4', 'B5'].forEach(a => K.addConditionalFormatting({ ref: a, rules: [{ type: 'cellIs', operator: 'greaterThan', formulae: [0], style: redS }] }));
+  K.getRow(7).values = ['Site', 'CKC present', 'CKC other status', 'Supply present', 'Subcontract present', 'Total on site'];
+  K.getRow(7).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill(NAVY); c.border = box; });
+  sites.forEach((s, i) => { const rr = 8 + i, a = `$A${rr}`; K.getRow(rr).values = [s,
+      { formula: `COUNTIFS(${cR},${a},${cS},"Present")+COUNTIFS(${cR},${a},${cS},"Work from home")` }, { formula: `COUNTIFS(${cR},${a})-COUNTIFS(${cR},${a},${cS},"")-B${rr}` },
+      { formula: `COUNTIFS(${oS},${a},${oT},"Supply",${oA},"Present")` }, { formula: `COUNTIFS(${oS},${a},${oT},"Subcontract",${oA},"Present")` }, { formula: `B${rr}+D${rr}+E${rr}` }];
+    for (let c = 1; c <= 6; c++) K.getRow(rr).getCell(c).border = box; });
+  const tr = 8 + sites.length; K.getRow(tr).values = ['Total', ...['B', 'C', 'D', 'E', 'F'].map(c => ({ formula: `SUM(${c}8:${c}${tr - 1})` }))]; K.getRow(tr).font = { bold: true };
+  await K.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true });
+  wb.worksheets.forEach(ws => { if (ws.name === 'How to fill') wb.views = [{ activeTab: 1 }]; });
+  const buf = await wb.xlsx.writeBuffer();
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); a.download = 'PEH-Daily-Register-' + D + '.xlsx'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  log('Daily register template downloaded', D + ' · ' + ckc.length + ' CKC staff, ' + known.length + ' outside workers');
+}
+// ── 2. Read the filled template
+async function dxFile(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; inp.value = '';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader. Check the internet connection.'); return; }
+  let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false }); } catch (e) { toast('Could not read that file.'); return; }
+  const sh = n => wb.Sheets[wb.SheetNames.find(x => x.trim().toLowerCase() === n)];
+  const CS = sh('ckc staff'), OS = sh('supply and subcontract');
+  if (!CS || !OS) { toast('This is not the PEH daily register template. Download the template from this page.'); return; }
+  const isD = v => Object.prototype.toString.call(v) === '[object Date]';
+  const dt = v => isD(v) ? (isNaN(v) ? '' : ymd(new Date(v.getTime() + 12 * 36e5))) : typeof v === 'number' && v > 20000 ? new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 864e5).toISOString().slice(0, 10) : /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? String(v).slice(0, 10) : (() => { const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(String(v).trim()); return m ? m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : ''; })();
+  const A = ws => window.XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '' });
+  const cr = A(CS), orows = A(OS);
+  const D = dt((cr[1] || [])[1]); const by = String((cr[2] || [])[1] || '').trim();
+  const E = [], W = [];
+  if (!D) E.push('The date at the top of "CKC staff" is missing or not a date.');
+  else if (D > today()) E.push('The date ' + fmtD(D) + ' is in the future.');
+  if (D && isClosed(D.slice(0, 7))) E.push('The month of ' + fmtD(D) + ' is closed in PEH. Reopen it first if this must be corrected.');
+  const siteBy = {}; Object.entries(S.sites).forEach(([k, s]) => { siteBy[dxNorm(s.name)] = k; });
+  const coBy = {}; Object.entries(S.companies).forEach(([k, c]) => { coBy[dxNorm(c.name)] = k; });
+  const statBy = {}; STAT.forEach(([c, l]) => { statBy[dxNorm(l)] = c; statBy[dxNorm(c)] = c; }); statBy['vacation'] = 'AL'; statBy['sickleave'] = 'SL'; statBy['compensatoryoff'] = 'CO'; statBy['wfh'] = 'WFH';
+  const docBy = {}; DX_DOC.forEach(([c, l]) => { docBy[dxNorm(l)] = c; docBy[dxNorm(c)] = c; });
+  const empBy = {}; Object.entries(S.people).forEach(([k, p]) => { if (p.cat !== 'supply' && p.empId) empBy[dxNorm(p.empId)] = k; });
+  const num = (v, max, what, row) => { if (v === '' || v == null) return null; const n = Number(v); if (isNaN(n) || n < 0 || n > max) { E.push(row + ': ' + what + ' must be 0 to ' + max + '.'); return null; } return n; };
+  const std = D ? stdDay(D) : 8;
+  const reg = {}; const R = sid => (reg[sid] = reg[sid] || { w: {}, sub: {}, subn: {} });
+  let ckcN = 0, ckcUnset = 0;
+  const hi = cr.findIndex(r => r.some(c => /^emp id$/i.test(String(c).trim())));
+  cr.slice(hi + 1).forEach((r, i) => { const row = 'CKC staff row ' + (hi + 2 + i);
+    const key = String(r[0] || '').trim(), emp = String(r[1] || '').trim(), name = String(r[2] || '').trim(), site = String(r[5] || '').trim(), st = String(r[6] || '').trim();
+    if (!key && !emp && !name) return;
+    const pid = (key && S.people[key]) ? key : empBy[dxNorm(emp)];
+    if (!pid) { E.push(row + ': ' + (name || emp) + ' is not in PEH (People and sites).'); return; }
+    if (!st) { ckcUnset++; return; }
+    const sid = siteBy[dxNorm(site)]; if (!sid) { E.push(row + ': ' + name + ': site "' + (site || 'empty') + '" is not a PEH site.'); return; }
+    const s = statBy[dxNorm(st)]; if (!s) { E.push(row + ': ' + name + ': status "' + st + '" is not valid.'); return; }
+    const h = num(r[7], 24, 'hours', row), ot = num(r[8], 16, 'overtime', row); const on = s === 'P' || s === 'WFH';
+    R(sid).w[pid] = { s, h: on ? (h == null ? std : h) : 0, ot: on ? (ot || 0) : 0 }; ckcN++; });
+  if (ckcUnset) W.push(ckcUnset + ' CKC staff have no status and will not be recorded for this day.');
+  const docKey = dxDocKey(); const seenDoc = {}; const newW = [], updW = [];
+  let supN = 0, subN = 0;
+  const ohi = orows.findIndex(r => r.some(c => /^document number$/i.test(String(c).trim())));
+  orows.slice(ohi + 1).forEach((r, i) => { const row = 'Supply / subcontract row ' + (ohi + 2 + i);
+    const key = String(r[0] || '').trim(), name = String(r[1] || '').trim(); if (!name) return;
+    const desig = String(r[2] || '').trim(), nat = String(r[3] || '').trim(), coN = String(r[4] || '').trim(), dT = String(r[6] || '').trim(), dN = dxDocN(r[7]), site = String(r[8] || '').trim(), att = String(r[9] || '').trim().toLowerCase();
+    if (!site && !att && key) return; // known worker not on site today
+    const co = coBy[dxNorm(coN)]; if (!co) { E.push(row + ': ' + name + ': company "' + (coN || 'empty') + '" is not in PEH. Add the company in PEH first.'); return; }
+    const kind = S.companies[co].kind === 'sub' ? 'sub' : 'supply';
+    const dt2 = docBy[dxNorm(dT)]; if (!dt2 || !dN) { E.push(row + ': ' + name + ': choose the document type and type its number.'); return; }
+    if (dN.length > 40) { E.push(row + ': ' + name + ': document number is too long.'); return; }
+    if (seenDoc[dN]) { E.push(row + ': ' + name + ': document number ' + dN + ' is also on ' + seenDoc[dN] + '.'); return; } seenDoc[dN] = name + ' (' + row + ')';
+    if (!site || !att) { E.push(row + ': ' + name + ': choose the site and Present / Absent.'); return; }
+    const sid = siteBy[dxNorm(site)]; if (!sid) { E.push(row + ': ' + name + ': site "' + site + '" is not a PEH site.'); return; }
+    if (!/^(present|absent)$/.test(att)) { E.push(row + ': ' + name + ': attendance must be Present or Absent.'); return; }
+    // who is it: the document number decides; then the key in the file
+    let wk = docKey[dN] ? (docKey[dN].startsWith('S_') ? 'S:' + docKey[dN].slice(2) : 'P:' + docKey[dN]) : (/^[PS]:/.test(key) ? key : '');
+    if (wk && ((wk[0] === 'P' && !S.people[wk.slice(2)]) || (wk[0] === 'S' && !S.subw[wk.slice(2)]))) wk = '';
+    if (wk && (wk[0] === 'P') !== (kind === 'supply')) { W.push(row + ': ' + name + ' moved between a supply and a subcontract company: recorded as a new worker under ' + coN + '.'); wk = ''; }
+    const rec = { name: name.slice(0, 120), desig: desig.slice(0, 120), nat: nat.slice(0, 60), co, kind, dT: dt2, dN, site: sid };
+    if (!wk) { wk = (kind === 'supply' ? 'P:' : 'S:') + push(ref(db, kind === 'supply' ? 'people' : 'subw')).key; newW.push(Object.assign({ wk }, rec)); }
+    else updW.push(Object.assign({ wk }, rec));
+    const h = num(r[10], 24, 'hours', row), ot = num(r[11], 16, 'overtime', row), pres = att === 'present';
+    if (kind === 'supply') { R(sid).w[wk.slice(2)] = { s: pres ? 'P' : 'A', h: pres ? (h == null ? std : h) : 0, ot: pres ? (ot || 0) : 0 }; if (pres) supN++; }
+    else if (pres) { R(sid).subn[wk.slice(2)] = 1; R(sid).sub[co] = (R(sid).sub[co] || 0) + 1; subN++; } });
+  const m = D ? D.slice(0, 7) : '', d = D ? D.slice(8) : '';
+  if (D) { try { await loadMonths([m], true); } catch (e) {} }
+  const existing = D ? Object.keys((attCache[m] || {})[d] || {}).filter(sid => reg[sid]) : [];
+  S.dx.imp = { file: f.name, D, by, reg, E: E.slice(0, 200), nE: E.length, W, newW, updW, ckcN, supN, subN, existing };
+  draw(); window.scrollTo(0, 0);
+}
+function vDxImport() {
+  const I = S.dx.imp, sites = Object.keys(I.reg).sort((a, b) => dxSiteName(a).localeCompare(dxSiteName(b)));
+  const rows = sites.map(sid => { const r = I.reg[sid]; const ck = Object.entries(r.w).filter(([k]) => S.people[k] && S.people[k].cat !== 'supply'); const cp = ck.filter(([, a]) => a.s === 'P' || a.s === 'WFH').length;
+    const sp = Object.entries(r.w).filter(([k, a]) => !(S.people[k] && S.people[k].cat !== 'supply') && a.s === 'P').length, sb = Object.values(r.sub).reduce((s, n) => s + n, 0);
+    return `<tr><td><b style="font-weight:500">${esc(dxSiteName(sid))}</b>${I.existing.includes(sid) ? ' ' + chip('warn', 'replaces saved register') : ''}</td><td class="num">${cp}</td><td class="num">${ck.length - cp}</td><td class="num">${sp}</td><td class="num">${sb}</td><td class="num"><b>${cp + sp + sb}</b></td></tr>`; }).join('');
+  const ok = !I.nE;
+  return ph('Upload daily register', esc(I.file) + (I.D ? ' · ' + fmtD(I.D) : '') + (I.by ? ' · prepared by ' + esc(I.by) : '') + '. Nothing is saved yet.') +
+    `<div class="grid g4" style="margin-bottom:16px">${[['CKC staff recorded', I.ckcN, 'with a status'], ['Supply present', I.supN, 'workers by name'], ['Subcontract present', I.subN, 'workers by name'], ['New outside workers', I.newW.length, 'added to the register of workers']].map(([l, v, s]) => `<div class="tile"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('')}</div>` +
+    (I.nE ? `<div class="card" style="border-color:var(--bad)"><h2 style="color:var(--bad)">${I.nE} problem${I.nE > 1 ? 's' : ''} to fix first</h2><p class="sub">Nothing can be saved until these are corrected in the Excel file. Then upload it again.</p><ul class="bul">${I.E.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : '') +
+    (I.W.length ? `<div class="banner warn">${I.W.map(esc).join('<br>')}</div>` : '') +
+    `<div class="card"><h2>By site</h2><div class="tw"><table><thead><tr><th>Site</th><th class="num">CKC present</th><th class="num">CKC other status</th><th class="num">Supply present</th><th class="num">Subcontract present</th><th class="num">Total on site</th></tr></thead><tbody>${rows || '<tr><td colspan="6">Nothing to save.</td></tr>'}</tbody></table></div>
+      <div class="row mt"><button class="btn fill wi" data-a="dxSave" ${ok && sites.length ? '' : 'disabled'}>Save ${fmtD(I.D || today())}</button><button class="btn text" data-a="dxCancel">Cancel</button></div>
+      <p class="note">Saving replaces the register of each site above for this date. Sites not in the file are not changed.</p></div>`;
+}
+async function dxSave() {
+  const I = S.dx.imp; if (!I || I.nE || !I.D) return;
+  const m = I.D.slice(0, 7), d = I.D.slice(8), upd = {};
+  const put = (w, isNew) => { const k = w.wk.slice(2), docK = (w.kind === 'sub' ? 'S_' : '') + k;
+    if (w.kind === 'supply') { const p = Object.assign({}, isNew ? {} : S.people[k], { name: w.name, cat: 'supply', status: 'active', company: w.co, site: w.site }); if (w.desig) p.desig = w.desig; if (w.nat) p.nat = w.nat; upd['people/' + k] = p; }
+    else { const p = Object.assign({}, isNew ? {} : S.subw[k], { name: w.name, co: w.co, status: 'active', site: w.site }); if (w.desig) p.desig = w.desig; if (w.nat) p.nat = w.nat; if (isNew) p.since = I.D; upd['subw/' + k] = p; }
+    const old = S.wdocs[docK]; if (!old || old.t !== w.dT || old.n !== w.dN) upd['wdocs/' + docK] = { t: w.dT, n: w.dN }; };
+  I.newW.forEach(w => put(w, true)); I.updW.forEach(w => put(w, false));
+  Object.entries(I.reg).forEach(([sid, r]) => { const ex = ((attCache[m] || {})[d] || {})[sid];
+    const rec = { meta: { by: S.user.email, at: serverTimestamp(), c: (ex && ex.meta && ex.meta.c) || serverTimestamp() } };
+    if (Object.keys(r.w).length) rec.w = r.w; if (Object.keys(r.sub).length) rec.sub = r.sub; if (Object.keys(r.subn).length) rec.subn = r.subn;
+    upd['att/' + m + '/' + d + '/' + sid] = rec; });
+  if (!confirm('Save the registers of ' + Object.keys(I.reg).length + ' sites for ' + fmtD(I.D) + '?')) return;
+  try { await update(ref(db), upd); delete attCache[m]; log('Daily register uploaded', fmtD(I.D) + ' · ' + Object.keys(I.reg).length + ' sites · ' + I.ckcN + ' CKC, ' + I.supN + ' supply, ' + I.subN + ' subcontract' + (I.newW.length ? ' · ' + I.newW.length + ' new workers' : ''));
+    toast('Saved'); S.mp.date = I.D; S.dx.imp = null; S.view = 'manpower'; draw(); } catch (e) { fail(e); }
+}
+// ── 3. The page
+function vDayx() {
+  if (S.dx.imp) return vDxImport();
+  const q = S.dx.q.toLowerCase(), adm = isAdmin();
+  const list = dxOutside().filter(([k, w]) => w.status !== 'left' && (!q || (w.name + ' ' + nm('companies', w.co) + ' ' + w.desig + ' ' + w.nat).toLowerCase().includes(q))).sort((a, b) => String(a[1].name).localeCompare(b[1].name));
+  const docOf = k => { const d = S.wdocs[(k[0] === 'S' ? 'S_' : '') + k.slice(2)]; return d ? (DX_DOC.find(x => x[0] === d.t) || [0, d.t])[1] + ' ' + d.n : '—'; };
+  return ph('Daily register from Excel', 'For the timekeeper who works in Excel: download the template, he fills it in, HR uploads it here. PEH checks every line before anything is saved.') +
+    `<div class="grid g2"><div class="card" style="margin:0"><h2>1. Template for the timekeeper</h2><p class="sub">Lists every active CKC person and every known supply and subcontract worker, with drop-downs for sites, companies and statuses. Locked except the yellow cells.</p>
+      <div class="row"><input class="inp" type="date" data-c="dxDate" value="${esc(S.dx.date)}" style="width:auto"><button class="btn fill wi" data-a="dxTpl">Download template</button></div>
+      <p class="note">Contains document numbers of outside workers: keep it inside the company.</p></div>
+     <div class="card" style="margin:0"><h2>2. Upload the filled file</h2><p class="sub">PEH reads the date from the file, checks names, sites, companies and document numbers, and shows a review first.</p>
+      ${canW() ? `<label class="btn tonal wi" style="position:relative">Upload filled template<input type="file" accept=".xlsx" data-c="dxFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>` : '<p class="note">View only.</p>'}</div></div>` +
+    `<div class="card mt"><h2>Supply and subcontract workers (${list.length})</h2><p class="sub">Built from the uploaded registers. A worker is recognised by the document number.${adm ? ' Document numbers are shown to super users only.' : ''}</p>
+      <input class="inp" placeholder="Search name, company, designation" data-c="dxQ" value="${esc(S.dx.q)}" style="max-width:340px;margin-bottom:10px">
+      ${list.length ? `<div class="tw" style="max-height:520px;overflow:auto"><table><thead><tr><th>Name</th><th>Company</th><th>Type</th><th>Designation</th><th>Nationality</th><th>Usual site</th>${adm ? '<th>Document</th>' : ''}</tr></thead><tbody>${list.slice(0, 500).map(([k, w]) => `<tr><td>${esc(w.name)}</td><td>${esc(nm('companies', w.co))}</td><td>${w.kind === 'sub' ? chip('', 'Subcontract') : chip('pri', 'Supply')}</td><td>${esc(w.desig || '—')}</td><td>${esc(w.nat || '—')}</td><td>${esc(dxSiteName(w.site) || '—')}</td>${adm ? `<td>${esc(docOf(k))}</td>` : ''}</tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>No outside workers yet</b>They are added from the first uploaded file.</div>'}</div>`;
+}
+// ── 4. Daily report: detailed PDF and Excel (names, no costs, no document numbers)
+async function dxDay(D) { const m = D.slice(0, 7), d = D.slice(8); await loadMonths([m], true); return (attCache[m] || {})[d] || {}; }
+function dxDayRows(day) { // one line per person on the registers of the day
+  const out = [];
+  Object.entries(day).forEach(([sid, r]) => { const site = dxSiteName(sid) || sid;
+    Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { name: '(removed)', cat: 'labour' }; const sup = p.cat === 'supply';
+      out.push({ site, type: sup ? 'Supply' : catName(p.cat), group: sup ? 'Supply' : ((S.trades[p.trade] || {}).group || 'Other'), name: p.name, id: sup ? '' : (p.empId || ''), co: sup ? nm('companies', p.company) : (p.entity || 'CKC'), desig: p.desig || nm('trades', p.trade), nat: p.nat || '', st: dxStatLabel(a.s), on: a.s === 'P' || a.s === 'WFH', h: a.h || 0, ot: a.ot || 0, dept: p.dept || '' }); });
+    const named = {}; Object.keys(r.subn || {}).forEach(k => { const w = S.subw[k] || { name: '(removed)', co: '' }; named[w.co] = (named[w.co] || 0) + 1;
+      out.push({ site, type: 'Subcontract', group: 'Subcontract', name: w.name, id: '', co: nm('companies', w.co), desig: w.desig || '', nat: w.nat || '', st: 'Present', on: true, h: subHours(S.mp.date), ot: 0 }); });
+    Object.entries(r.sub || {}).forEach(([c, n]) => { const extra = Number(n) - (named[c] || 0); if (extra > 0) out.push({ site, type: 'Subcontract', group: 'Subcontract', name: '(' + extra + ' without names)', id: '', co: nm('companies', c), desig: '', nat: '', st: 'Present', on: true, h: 0, ot: 0, count: extra }); });
+  });
+  return out.sort((a, b) => a.site.localeCompare(b.site) || ['CKC staff', 'CKC labour', 'Supply', 'Subcontract'].indexOf(a.type) - ['CKC staff', 'CKC labour', 'Supply', 'Subcontract'].indexOf(b.type) || a.co.localeCompare(b.co) || a.name.localeCompare(b.name));
+}
+function dxSummary(rows) {
+  const S2 = {}; rows.forEach(x => { const s = S2[x.site] = S2[x.site] || { ckc: 0, staff: 0, labour: 0, supply: 0, sub: 0, other: 0, groups: {}, cos: {} }; const n = x.count || 1;
+    if (!x.on) { if (x.type !== 'Supply' && x.type !== 'Subcontract') s.other++; return; }
+    if (x.type === 'Supply') { s.supply += n; s.cos[x.co] = (s.cos[x.co] || 0) + n; } else if (x.type === 'Subcontract') { s.sub += n; s.cos[x.co] = (s.cos[x.co] || 0) + n; }
+    else { s.ckc++; s[x.type === 'CKC staff' ? 'staff' : 'labour']++; s.groups[x.group] = (s.groups[x.group] || 0) + 1; } });
+  return S2;
+}
+async function dxReportXlsx() {
+  const D = S.mp.date; try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel tool.'); return; }
+  const rows = dxDayRows(await dxDay(D)); if (!rows.length) { toast('No registers saved for ' + fmtD(D) + '.'); return; }
+  const SM = dxSummary(rows), X = window.XLSX, wb = X.utils.book_new();
+  const sum = [['Daily manpower report', fmtD(D)], [], ['Site', 'CKC staff', 'CKC labour', 'CKC total', 'Supply', 'Subcontract', 'Total on site', 'CKC absent / leave']];
+  const T = [0, 0, 0, 0, 0, 0, 0]; Object.entries(SM).sort().forEach(([s, x]) => { const r = [x.staff, x.labour, x.ckc, x.supply, x.sub, x.ckc + x.supply + x.sub, x.other]; r.forEach((v, i) => T[i] += v); sum.push([s, ...r]); }); sum.push(['Total', ...T]);
+  const stc = {}; rows.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').forEach(x => stc[x.st] = (stc[x.st] || 0) + 1);
+  const st = [['CKC status', 'People']].concat(STAT.map(([c, l]) => [l, stc[l] || 0]));
+  const cos = {}; rows.filter(x => x.on && (x.type === 'Supply' || x.type === 'Subcontract')).forEach(x => { const k = x.co + '|' + x.type; (cos[k] = cos[k] || { co: x.co, t: x.type, n: 0, s: new Set() }).n += x.count || 1; cos[k].s.add(x.site); });
+  const cr = [['Company', 'Type', 'Headcount', 'Sites']].concat(Object.values(cos).sort((a, b) => b.n - a.n).map(c => [c.co, c.t, c.n, [...c.s].join(', ')]));
+  const nm2 = [['Site', 'Type', 'Group / trade', 'Name', 'Emp ID', 'Company', 'Designation', 'Nationality', 'Status', 'Hours', 'Overtime']].concat(rows.map(x => [x.site, x.type, x.group, x.name, x.id, x.co, x.desig, x.nat, x.st, x.h, x.ot]));
+  const add = (aoa, n, w) => { const ws = X.utils.aoa_to_sheet(aoa); ws['!cols'] = w.map(x => ({ wch: x })); X.utils.book_append_sheet(wb, ws, n); };
+  add(sum, 'Summary', [30, 11, 11, 11, 10, 12, 13, 18]); add(st, 'CKC status', [22, 10]); add(cr, 'Companies', [30, 13, 11, 60]); add(nm2, 'Names', [26, 13, 16, 30, 11, 26, 24, 14, 16, 8, 9]);
+  X.writeFile(wb, 'PEH-Daily-Manpower-' + D + '.xlsx'); log('Daily report Excel downloaded', D);
+}
+async function dxReportPdf() {
+  const D = S.mp.date; const rows = dxDayRows(await dxDay(D)); if (!rows.length) { toast('No registers saved for ' + fmtD(D) + '.'); return; }
+  const SM = dxSummary(rows); const groups = [...new Set(rows.filter(x => x.on && x.type !== 'Supply' && x.type !== 'Subcontract').map(x => x.group))].sort();
+  try {
+    const tot = Object.values(SM).reduce((t, x) => [t[0] + x.ckc, t[1] + x.supply, t[2] + x.sub], [0, 0, 0]);
+    const P = await pdfDoc('Daily manpower report · ' + new Date(D + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), 'Total on site ' + (tot[0] + tot[1] + tot[2]) + ' · CKC ' + tot[0] + ' · supply ' + tot[1] + ' · subcontract ' + tot[2] + '. From the PEH site registers.');
+    const body = Object.entries(SM).sort().map(([s, x]) => [s, ...groups.map(g => String(x.groups[g] || 0)), String(x.ckc), String(x.supply), String(x.sub), String(x.ckc + x.supply + x.sub), String(x.other)]);
+    const ft = ['Total', ...groups.map(g => String(Object.values(SM).reduce((t, x) => t + (x.groups[g] || 0), 0))), String(tot[0]), String(tot[1]), String(tot[2]), String(tot[0] + tot[1] + tot[2]), String(Object.values(SM).reduce((t, x) => t + x.other, 0))];
+    let y = P.table(30, ['Site', ...groups.map(g => 'CKC ' + g), 'CKC total', 'Supply', 'Subcontract', 'Total', 'CKC absent / leave'], body.concat([ft]), { columnStyles: numAlign(groups.length + 6), didParseCell: c => { if (c.section === 'body' && c.row.index === body.length) { c.cell.styles.fontStyle = 'bold'; c.cell.styles.fillColor = [232, 240, 254]; } } });
+    const stc = {}; rows.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').forEach(x => stc[x.st] = (stc[x.st] || 0) + 1);
+    if (y > 150) { P.doc.addPage(); y = 26; }
+    y = P.table(y + 6, ['CKC status', 'People'], STAT.map(([c, l]) => [l, String(stc[l] || 0)]), { tableWidth: 90, columnStyles: { 1: { halign: 'right' } } });
+    Object.entries(SM).sort().forEach(([s]) => { const L = rows.filter(x => x.site === s);
+      P.doc.addPage(); let yy = 30; P.doc.setFont('helvetica', 'bold'); P.doc.setFontSize(12); P.doc.setTextColor(31, 31, 31); P.doc.text(s, P.m, 28);
+      const blk = (title, head, data) => { if (!data.length) return; if (yy > 175) { P.doc.addPage(); yy = 30; } P.doc.setFont('helvetica', 'bold'); P.doc.setFontSize(9.5); P.doc.text(title, P.m, yy + 6); yy = P.table(yy + 8, head, data) + 2; };
+      blk('CKC staff and labour', ['Name', 'Emp ID', 'Designation', 'Group', 'Status', 'Hours', 'OT'], L.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').map(x => [x.name, x.id, x.desig, x.group, x.st, String(x.h), String(x.ot)]));
+      blk('Supply labour', ['Name', 'Company', 'Designation', 'Nationality', 'Status', 'Hours', 'OT'], L.filter(x => x.type === 'Supply').map(x => [x.name, x.co, x.desig, x.nat, x.st, String(x.h), String(x.ot)]));
+      blk('Subcontractors', ['Name', 'Company', 'Designation', 'Nationality', 'Status'], L.filter(x => x.type === 'Subcontract').map(x => [x.name, x.co, x.desig, x.nat, x.st])); });
+    P.finish('PEH-daily-manpower-detailed-' + D + '.pdf'); log('Detailed daily report PDF downloaded', D);
+  } catch (e) { toast(e.message || 'Could not make the PDF.'); }
+}
+Object.assign(ACT, { dxTpl: () => dxTemplate(), dxSave, dxCancel: () => { S.dx.imp = null; draw(); }, mpDetPdf: dxReportPdf, mpXlsx: dxReportXlsx });
+['dxSave'].forEach(a => WRITE.add(a));
+document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
+  if (c === 'dxDate') S.dx.date = t.value || today(); else if (c === 'dxFile') dxFile(t); });
+document.addEventListener('input', ev => { const t = ev.target; if (t.dataset && t.dataset.c === 'dxQ') { S.dx.q = t.value; clearTimeout(S.dx.qt); S.dx.qt = setTimeout(() => { draw(); const el = document.querySelector('[data-c="dxQ"]'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 300); } });
 
 </script>
 </body>
