@@ -2553,6 +2553,9 @@ const DX_NAT = ['India', 'Pakistan', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Philip
 const dxDocN = s => String(s || '').toUpperCase().replace(/[\s-]/g, '');
 const dxNorm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const dxSiteName = k => (S.sites[k] || {}).name || '';
+// Company (visa) of an own employee: CK Architecture Interiors or CKC Building Contracting
+const entShort = p => { const e = String((p && p.entity) || ''); return /ckc|building/i.test(e) ? 'CKC' : /\bck\b|architecture|interior/i.test(e) ? 'CK' : ''; };
+const ownCat = p => (p && p.cat === 'staff') ? 'Staff' : 'Labour';
 function dxDocKey() { const m = {}; Object.entries(S.wdocs || {}).forEach(([k, d]) => { if (d && d.n) m[dxDocN(d.n)] = k; }); return m; }
 function dxOutside() { // all outside workers: [key, {name, desig, nat, co, kind, status}]
   const out = [];
@@ -2599,16 +2602,16 @@ async function dxTemplate() {
     .forEach((t, i) => { const c = H.getCell(i + 1, 1); c.value = t; c.alignment = { wrapText: true, vertical: 'top' }; if (i === 0) c.font = { bold: true, size: 14, color: { argb: NAVY } }; });
   // CKC staff
   const C = wb.addWorksheet('CKC staff', { views: [{ state: 'frozen', ySplit: 5 }] });
-  C.columns = [{ width: 4 }, { width: 13 }, { width: 30 }, { width: 26 }, { width: 13 }, { width: 28 }, { width: 18 }, { width: 13 }, { width: 11 }, { width: 28 }];
+  C.columns = [{ width: 4 }, { width: 15 }, { width: 30 }, { width: 26 }, { width: 18 }, { width: 28 }, { width: 18 }, { width: 13 }, { width: 11 }, { width: 28 }];
   C.getCell('A1').value = 'CKC staff · daily register'; C.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
   C.getCell('A2').value = 'Date'; C.getCell('B2').value = new Date(D + 'T12:00:00'); C.getCell('B2').numFmt = 'dd/mm/yyyy';
   C.getCell('A3').value = 'Prepared by'; C.mergeCells('B3:C3');
   ['B2', 'B3'].forEach(a => { C.getCell(a).fill = fill(YEL); C.getCell(a).border = box; C.getCell(a).protection = { locked: false }; });
   C.getCell('B2').dataValidation = { type: 'date', operator: 'greaterThan', formulae: [new Date('2025-01-01')], showErrorMessage: true, error: 'Type a date, for example 27/10/2026.' };
-  C.getRow(5).values = ['PEH key', 'Emp ID', 'Name', 'Designation', 'Category', 'Site', 'Status', 'Hours (only if different)', 'Overtime hours', 'Remarks'];
+  C.getRow(5).values = ['PEH key', 'Emp ID', 'Name', 'Designation', 'Category · company (visa)', 'Site', 'Status', 'Hours (only if different)', 'Overtime hours', 'Remarks'];
   C.getRow(5).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill(NAVY); c.alignment = { wrapText: true, vertical: 'middle' }; c.border = box; }); C.getRow(5).height = 32;
   const ckc = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort((a, b) => dxSiteName(a[1].site).localeCompare(dxSiteName(b[1].site)) || byName(a, b));
-  ckc.forEach(([k, p], i) => { const r = C.getRow(6 + i); r.values = [k, p.empId || '', p.name, p.desig || nm('trades', p.trade), catName(p.cat), dxSiteName(p.site) || null, null, null, null, null];
+  ckc.forEach(([k, p], i) => { const r = C.getRow(6 + i); r.values = [k, p.empId || '', p.name, p.desig || nm('trades', p.trade), ownCat(p) + ' · ' + (entShort(p) || 'company?'), dxSiteName(p.site) || null, null, null, null, null];
     [2, 3, 4, 5].forEach(c => { r.getCell(c).fill = fill(GREY); }); [6, 7, 8, 9, 10].forEach(c => { r.getCell(c).fill = fill(YEL); r.getCell(c).protection = { locked: false }; });
     for (let c = 1; c <= 10; c++) r.getCell(c).border = box;
   });
@@ -2795,33 +2798,33 @@ function dxDayRows(day) { // one line per person on the registers of the day
   const out = [];
   Object.entries(day).forEach(([sid, r]) => { const site = dxSiteName(sid) || sid;
     Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { name: '(removed)', cat: 'labour' }; const sup = p.cat === 'supply';
-      out.push({ site, type: sup ? 'Supply' : catName(p.cat), group: sup ? 'Supply' : ((S.trades[p.trade] || {}).group || 'Other'), name: p.name, id: sup ? '' : (p.empId || ''), co: sup ? nm('companies', p.company) : (p.entity || 'CKC'), desig: p.desig || nm('trades', p.trade), nat: p.nat || '', st: dxStatLabel(a.s), on: a.s === 'P' || a.s === 'WFH', h: a.h || 0, ot: a.ot || 0, dept: p.dept || '' }); });
+      out.push({ site, type: sup ? 'Supply' : ownCat(p), ent: sup ? '' : (entShort(p) || '?'), group: sup ? 'Supply' : ((S.trades[p.trade] || {}).group || 'Other'), name: p.name, id: sup ? '' : (p.empId || ''), co: sup ? nm('companies', p.company) : (entShort(p) || p.entity || '?'), desig: p.desig || nm('trades', p.trade), nat: p.nat || '', st: dxStatLabel(a.s), on: a.s === 'P' || a.s === 'WFH', h: a.h || 0, ot: a.ot || 0, dept: p.dept || '' }); });
     const named = {}; Object.keys(r.subn || {}).forEach(k => { const w = S.subw[k] || { name: '(removed)', co: '' }; named[w.co] = (named[w.co] || 0) + 1;
       out.push({ site, type: 'Subcontract', group: 'Subcontract', name: w.name, id: '', co: nm('companies', w.co), desig: w.desig || '', nat: w.nat || '', st: 'Present', on: true, h: subHours(S.mp.date), ot: 0 }); });
     Object.entries(r.sub || {}).forEach(([c, n]) => { const extra = Number(n) - (named[c] || 0); if (extra > 0) out.push({ site, type: 'Subcontract', group: 'Subcontract', name: '(' + extra + ' without names)', id: '', co: nm('companies', c), desig: '', nat: '', st: 'Present', on: true, h: 0, ot: 0, count: extra }); });
   });
-  return out.sort((a, b) => a.site.localeCompare(b.site) || ['CKC staff', 'CKC labour', 'Supply', 'Subcontract'].indexOf(a.type) - ['CKC staff', 'CKC labour', 'Supply', 'Subcontract'].indexOf(b.type) || a.co.localeCompare(b.co) || a.name.localeCompare(b.name));
+  return out.sort((a, b) => a.site.localeCompare(b.site) || ['Staff', 'Labour', 'Supply', 'Subcontract'].indexOf(a.type) - ['Staff', 'Labour', 'Supply', 'Subcontract'].indexOf(b.type) || a.co.localeCompare(b.co) || a.name.localeCompare(b.name));
 }
 function dxSummary(rows) {
-  const S2 = {}; rows.forEach(x => { const s = S2[x.site] = S2[x.site] || { ckc: 0, staff: 0, labour: 0, supply: 0, sub: 0, other: 0, groups: {}, cos: {} }; const n = x.count || 1;
+  const S2 = {}; rows.forEach(x => { const s = S2[x.site] = S2[x.site] || { ckc: 0, staff: 0, labour: 0, ck: 0, ckcE: 0, supply: 0, sub: 0, other: 0, groups: {}, cos: {} }; const n = x.count || 1;
     if (!x.on) { if (x.type !== 'Supply' && x.type !== 'Subcontract') s.other++; return; }
     if (x.type === 'Supply') { s.supply += n; s.cos[x.co] = (s.cos[x.co] || 0) + n; } else if (x.type === 'Subcontract') { s.sub += n; s.cos[x.co] = (s.cos[x.co] || 0) + n; }
-    else { s.ckc++; s[x.type === 'CKC staff' ? 'staff' : 'labour']++; s.groups[x.group] = (s.groups[x.group] || 0) + 1; } });
+    else { s.ckc++; s[x.type === 'Staff' ? 'staff' : 'labour']++; if (x.ent === 'CK') s.ck++; else s.ckcE++; s.groups[x.group] = (s.groups[x.group] || 0) + 1; } });
   return S2;
 }
 async function dxReportXlsx() {
   const D = S.mp.date; try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel tool.'); return; }
   const rows = dxDayRows(await dxDay(D)); if (!rows.length) { toast('No registers saved for ' + fmtD(D) + '.'); return; }
   const SM = dxSummary(rows), X = window.XLSX, wb = X.utils.book_new();
-  const sum = [['Daily manpower report', fmtD(D)], [], ['Site', 'CKC staff', 'CKC labour', 'CKC total', 'Supply', 'Subcontract', 'Total on site', 'CKC absent / leave']];
-  const T = [0, 0, 0, 0, 0, 0, 0]; Object.entries(SM).sort().forEach(([s, x]) => { const r = [x.staff, x.labour, x.ckc, x.supply, x.sub, x.ckc + x.supply + x.sub, x.other]; r.forEach((v, i) => T[i] += v); sum.push([s, ...r]); }); sum.push(['Total', ...T]);
+  const sum = [['Daily manpower report', fmtD(D)], [], ['Site', 'Own staff', 'Own labour', 'of which CK', 'of which CKC', 'Own total', 'Supply', 'Subcontract', 'Total on site', 'Own absent / leave']];
+  const T = [0, 0, 0, 0, 0, 0, 0, 0, 0]; Object.entries(SM).sort().forEach(([s, x]) => { const r = [x.staff, x.labour, x.ck, x.ckcE, x.ckc, x.supply, x.sub, x.ckc + x.supply + x.sub, x.other]; r.forEach((v, i) => T[i] += v); sum.push([s, ...r]); }); sum.push(['Total', ...T]);
   const stc = {}; rows.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').forEach(x => stc[x.st] = (stc[x.st] || 0) + 1);
-  const st = [['CKC status', 'People']].concat(STAT.map(([c, l]) => [l, stc[l] || 0]));
+  const st = [['Own staff status (CK + CKC)', 'People']].concat(STAT.map(([c, l]) => [l, stc[l] || 0]));
   const cos = {}; rows.filter(x => x.on && (x.type === 'Supply' || x.type === 'Subcontract')).forEach(x => { const k = x.co + '|' + x.type; (cos[k] = cos[k] || { co: x.co, t: x.type, n: 0, s: new Set() }).n += x.count || 1; cos[k].s.add(x.site); });
   const cr = [['Company', 'Type', 'Headcount', 'Sites']].concat(Object.values(cos).sort((a, b) => b.n - a.n).map(c => [c.co, c.t, c.n, [...c.s].join(', ')]));
-  const nm2 = [['Site', 'Type', 'Group / trade', 'Name', 'Emp ID', 'Company', 'Designation', 'Nationality', 'Status', 'Hours', 'Overtime']].concat(rows.map(x => [x.site, x.type, x.group, x.name, x.id, x.co, x.desig, x.nat, x.st, x.h, x.ot]));
+  const nm2 = [['Site', 'Type', 'Group / trade', 'Name', 'Emp ID', 'Company (CK / CKC / supplier)', 'Designation', 'Nationality', 'Status', 'Hours', 'Overtime']].concat(rows.map(x => [x.site, x.type, x.group, x.name, x.id, x.co, x.desig, x.nat, x.st, x.h, x.ot]));
   const add = (aoa, n, w) => { const ws = X.utils.aoa_to_sheet(aoa); ws['!cols'] = w.map(x => ({ wch: x })); X.utils.book_append_sheet(wb, ws, n); };
-  add(sum, 'Summary', [30, 11, 11, 11, 10, 12, 13, 18]); add(st, 'CKC status', [22, 10]); add(cr, 'Companies', [30, 13, 11, 60]); add(nm2, 'Names', [26, 13, 16, 30, 11, 26, 24, 14, 16, 8, 9]);
+  add(sum, 'Summary', [30, 11, 11, 11, 12, 11, 10, 12, 13, 18]); add(st, 'Status', [28, 10]); add(cr, 'Companies', [30, 13, 11, 60]); add(nm2, 'Names', [26, 13, 16, 30, 11, 26, 24, 14, 16, 8, 9]);
   X.writeFile(wb, 'PEH-Daily-Manpower-' + D + '.xlsx'); log('Daily report Excel downloaded', D);
 }
 async function dxReportPdf() {
@@ -2829,17 +2832,17 @@ async function dxReportPdf() {
   const SM = dxSummary(rows); const groups = [...new Set(rows.filter(x => x.on && x.type !== 'Supply' && x.type !== 'Subcontract').map(x => x.group))].sort();
   try {
     const tot = Object.values(SM).reduce((t, x) => [t[0] + x.ckc, t[1] + x.supply, t[2] + x.sub], [0, 0, 0]);
-    const P = await pdfDoc('Daily manpower report · ' + new Date(D + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), 'Total on site ' + (tot[0] + tot[1] + tot[2]) + ' · CKC ' + tot[0] + ' · supply ' + tot[1] + ' · subcontract ' + tot[2] + '. From the PEH site registers.');
-    const body = Object.entries(SM).sort().map(([s, x]) => [s, ...groups.map(g => String(x.groups[g] || 0)), String(x.ckc), String(x.supply), String(x.sub), String(x.ckc + x.supply + x.sub), String(x.other)]);
-    const ft = ['Total', ...groups.map(g => String(Object.values(SM).reduce((t, x) => t + (x.groups[g] || 0), 0))), String(tot[0]), String(tot[1]), String(tot[2]), String(tot[0] + tot[1] + tot[2]), String(Object.values(SM).reduce((t, x) => t + x.other, 0))];
-    let y = P.table(30, ['Site', ...groups.map(g => 'CKC ' + g), 'CKC total', 'Supply', 'Subcontract', 'Total', 'CKC absent / leave'], body.concat([ft]), { columnStyles: numAlign(groups.length + 6), didParseCell: c => { if (c.section === 'body' && c.row.index === body.length) { c.cell.styles.fontStyle = 'bold'; c.cell.styles.fillColor = [232, 240, 254]; } } });
+    const P = await pdfDoc('Daily manpower report · ' + new Date(D + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }), 'Total on site ' + (tot[0] + tot[1] + tot[2]) + ' · own staff (CK + CKC) ' + tot[0] + ' · supply ' + tot[1] + ' · subcontract ' + tot[2] + '. From the PEH site registers.');
+    const body = Object.entries(SM).sort().map(([s, x]) => [s, ...groups.map(g => String(x.groups[g] || 0)), String(x.ck), String(x.ckcE), String(x.ckc), String(x.supply), String(x.sub), String(x.ckc + x.supply + x.sub), String(x.other)]);
+    const ft = ['Total', ...groups.map(g => String(Object.values(SM).reduce((t, x) => t + (x.groups[g] || 0), 0))), String(Object.values(SM).reduce((t, x) => t + x.ck, 0)), String(Object.values(SM).reduce((t, x) => t + x.ckcE, 0)), String(tot[0]), String(tot[1]), String(tot[2]), String(tot[0] + tot[1] + tot[2]), String(Object.values(SM).reduce((t, x) => t + x.other, 0))];
+    let y = P.table(30, ['Site', ...groups.map(g => 'Own ' + g), 'of which CK', 'of which CKC', 'Own total', 'Supply', 'Subcontract', 'Total', 'Own absent / leave'], body.concat([ft]), { columnStyles: numAlign(groups.length + 8), didParseCell: c => { if (c.section === 'body' && c.row.index === body.length) { c.cell.styles.fontStyle = 'bold'; c.cell.styles.fillColor = [232, 240, 254]; } } });
     const stc = {}; rows.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').forEach(x => stc[x.st] = (stc[x.st] || 0) + 1);
     if (y > 150) { P.doc.addPage(); y = 26; }
-    y = P.table(y + 6, ['CKC status', 'People'], STAT.map(([c, l]) => [l, String(stc[l] || 0)]), { tableWidth: 90, columnStyles: { 1: { halign: 'right' } } });
+    y = P.table(y + 6, ['Own staff status (CK + CKC)', 'People'], STAT.map(([c, l]) => [l, String(stc[l] || 0)]), { tableWidth: 90, columnStyles: { 1: { halign: 'right' } } });
     Object.entries(SM).sort().forEach(([s]) => { const L = rows.filter(x => x.site === s);
       P.doc.addPage(); let yy = 30; P.doc.setFont('helvetica', 'bold'); P.doc.setFontSize(12); P.doc.setTextColor(31, 31, 31); P.doc.text(s, P.m, 28);
       const blk = (title, head, data) => { if (!data.length) return; if (yy > 175) { P.doc.addPage(); yy = 30; } P.doc.setFont('helvetica', 'bold'); P.doc.setFontSize(9.5); P.doc.text(title, P.m, yy + 6); yy = P.table(yy + 8, head, data) + 2; };
-      blk('CKC staff and labour', ['Name', 'Emp ID', 'Designation', 'Group', 'Status', 'Hours', 'OT'], L.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').map(x => [x.name, x.id, x.desig, x.group, x.st, String(x.h), String(x.ot)]));
+      blk('Own staff and labour (CK / CKC)', ['Name', 'Emp ID', 'Company', 'Designation', 'Group', 'Status', 'Hours', 'OT'], L.filter(x => x.type !== 'Supply' && x.type !== 'Subcontract').map(x => [x.name, x.id, x.ent, x.desig, x.group, x.st, String(x.h), String(x.ot)]));
       blk('Supply labour', ['Name', 'Company', 'Designation', 'Nationality', 'Status', 'Hours', 'OT'], L.filter(x => x.type === 'Supply').map(x => [x.name, x.co, x.desig, x.nat, x.st, String(x.h), String(x.ot)]));
       blk('Subcontractors', ['Name', 'Company', 'Designation', 'Nationality', 'Status'], L.filter(x => x.type === 'Subcontract').map(x => [x.name, x.co, x.desig, x.nat, x.st])); });
     P.finish('PEH-daily-manpower-detailed-' + D + '.pdf'); log('Detailed daily report PDF downloaded', D);
