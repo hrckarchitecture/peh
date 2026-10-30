@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v4.0. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v4.1. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -190,7 +190,8 @@ td .inp.ev{min-width:150px}
   .brand small{display:none} .brand .full{display:none} .brand .short{display:inline} .top{gap:8px;padding:0 8px 0 4px}
   .role-chip{display:none}
 }
-@media print{.top,.rail,.no-print{display:none!important}.shell{display:block}main{padding:0}.card{break-inside:avoid}}
+@media print{.top,.rail,.no-print{display:none!important}.shell{display:block}main{padding:0}.card{break-inside:avoid}.sc-card{break-inside:avoid}}
+.sc-cards{display:flex;flex-wrap:wrap;gap:6mm}.sc-card{width:85mm;height:54mm;box-sizing:border-box;border:1px solid #999;border-radius:3mm;padding:3mm 4mm;display:grid;grid-template-columns:27mm 1fr;grid-template-rows:auto 1fr auto auto;column-gap:4mm;background:#fff;color:#111;font-family:Arial,sans-serif}.sc-co{grid-column:1/3;font-size:8pt;font-weight:700;color:#1C3557;border-bottom:1px solid #1C3557;padding-bottom:1mm;margin-bottom:2mm}.sc-qr{grid-row:2/5;width:27mm;height:27mm}.sc-qr svg{width:100%;height:100%}.sc-nm{font-size:11pt;font-weight:700;align-self:end}.sc-ds{font-size:8pt;color:#444}.sc-id{font-size:8pt;color:#444}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -401,7 +402,7 @@ function navItems() {
   n.push(['cards', 'Scorecards', 'cards']);
   n.push(['delays', 'Delay log', 'delay']);
   if (isFin() || isAdmin()) n.push(['finance', 'Finance check', 'fin']);
-  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) { n.push(['register', 'Site register', 'cards']); n.push(['dayx', 'Daily register from Excel', 'cards']); } n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
+  if (isAdmin() || isCeo() || isFin()) { n.push(['sep', 'Sites and manpower']); n.push(['dash', 'Dashboard', 'home']); if (isAdmin()) { n.push(['register', 'Site register', 'cards']); n.push(['dayx', 'Daily register from Excel', 'cards']); n.push(['scan', 'Scan attendance (pilot)', 'cards']); } n.push(['manpower', 'Daily report', 'me']); n.push(['reports', 'Reports', 'hist']); n.push(['costs', 'Costs and rates', 'fin']); }
   n.push(['sep', 'Roles and KPIs']); n.push(['units', 'Business units', 'fin']); n.push(['roles', 'Role library', 'cards']); if (isAdmin() || isCeo()) n.push(['assign', 'Who does what', 'me']); n.push(['links', 'Department links', 'link']); n.push(['kpilib', 'KPI library', 'chart']);
   if (isAdmin() || isCeo()) { n.push(['sep', 'Health and safety']); n.push(['hseov', 'HSE overview', 'home']); n.push(['hseobs', 'Observations and NCRs', 'delay']); n.push(['hsekpi', 'Weekly HSE KPIs', 'chart']); }
   if (isAdmin()) { n.push(['sep', 'Admin']); n.push(['people', 'People and sites', 'me']); n.push(['access', 'Access', 'key']); n.push(['setup', 'Scorecard setup', 'cog']); n.push(['activity', 'Activity', 'hist']); }
@@ -433,7 +434,7 @@ function draw() {
   const mmN = seesAssign() ? roleMismatches().length : 0;
   $('#rail').innerHTML = navItems().map(([v, l, i]) => v === 'sep' ? `<div class="grp">${l}</div>` :
     `<button data-a="nav" data-v="${v}" ${((S.view === v && !(v === 'cards' && isHead() && S.sel === myOwner())) || (v === 'mine' && S.view === 'cards' && S.sel === myOwner() && isHead())) ? 'aria-current="page"' : ''}>${svg(i)}${l}${v === 'access' && pend ? `<span class="count">${pend}</span>` : ''}${v === 'assign' && mmN ? `<span class="count">${mmN}</span>` : ''}${v === 'finance' && unconf ? `<span class="count">${unconf}</span>` : ''}</button>`).join('');
-  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib, hseov: vHseOv, hseobs: vHseObs, hsekpi: vHseKpi, dayx: vDayx }[S.view] || (isTK() ? vRegister : isHSE() ? vHseOv : vCards);
+  const V = { overview: vOverview, cards: vCards, delays: vDelays, finance: vFinance, access: vAccess, setup: vSetup, activity: vActivity, register: vRegister, manpower: vManpower, reports: vReports, people: vPeople, costs: vCosts, dash: vDash, units: vUnits, roles: vRoles, assign: vAssign, links: vLinks, kpilib: vKpiLib, hseov: vHseOv, hseobs: vHseObs, hsekpi: vHseKpi, dayx: vDayx, scan: vScan }[S.view] || (isTK() ? vRegister : isHSE() ? vHseOv : vCards);
   $('#main').innerHTML = `<div class="page">${costReminder()}${hseBanner()}${V()}</div>`;
   if (S.view === 'dash') drawDashCharts(); else if (dashCharts.length) { dashCharts.forEach(c => { try { c.destroy(); } catch (e) {} }); dashCharts = []; }
   if (isAdmin() && S.acc.ro) { $('#main').querySelectorAll('[data-a]').forEach(b => { if (WRITE.has(b.dataset.a)) b.remove(); }); $('#main').querySelectorAll('.wi').forEach(el => { if (el.tagName === 'LABEL' || el.tagName === 'BUTTON') el.remove(); else el.disabled = true; }); }
@@ -2991,6 +2992,119 @@ async function siteRemove(k) {
 }
 Object.assign(ACT, { siteRemove: b => siteRemove(b.dataset.v) });
 WRITE.add('siteRemove');
+
+
+// ══ v4.1: attendance by QR card scan, with live photo and location (pilot) ═══════════════════════
+// Each person gets a card with a QR code holding only "PEH1:<PEH key>" (no ID numbers, no salary).
+// A super user opens Scan on a phone, chooses the site, scans the card, takes a live photo, saves.
+// First scan of the day = arrival (marks Present in that site's register); second = leaving time.
+// Photos are small (about 10 KB), super users only, and removed automatically after 60 days.
+S.sc = { tab: 'scan', site: '', date: today(), q: '', sel: {}, day: null, dayD: '', cards: null };
+const SC_KEEP_DAYS = 60;
+const scSiteDefault = () => { const e = Object.entries(S.sites || {}).find(([k, s]) => /hq|office/i.test(s.name) && s.active !== false); return e ? e[0] : (Object.keys(S.sites || {})[0] || ''); };
+async function scLoadDay(D, force) { if (!force && S.sc.dayD === D && S.sc.day) return S.sc.day; let v = {}; try { v = (await get(ref(db, 'scans/' + D))).val() || {}; } catch (e) { v = {}; } S.sc.day = v; S.sc.dayD = D; return v; }
+async function scLibs() { if (!window.jsQR) await loadJs('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'); }
+let scStream = null, scTimer = null, scHit = null, scPos = null;
+function scStop() { if (scTimer) { clearInterval(scTimer); scTimer = null; } if (scStream) { scStream.getTracks().forEach(t => t.stop()); scStream = null; } }
+function scMsg(html, cls) { const el = document.getElementById('scMsg'); if (el) { el.innerHTML = html; el.className = 'banner ' + (cls || ''); } }
+async function scStart() {
+  S.sc.site = (document.getElementById('scSite') || {}).value || S.sc.site; if (!S.sc.site) { toast('Choose the site first.'); return; }
+  try { await scLibs(); } catch (e) { toast('Could not load the scanner. Check the internet connection.'); return; }
+  try { scStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false }); }
+  catch (e) { scMsg('The camera could not be opened. Allow camera access for this page in the browser settings, then try again.', 'warn'); return; }
+  const v = document.getElementById('scVid'); v.srcObject = scStream; await v.play().catch(() => {});
+  document.getElementById('scCam').style.display = 'block'; document.getElementById('scStartBtn').style.display = 'none';
+  if (navigator.geolocation) navigator.geolocation.getCurrentPosition(p => { scPos = { lat: +p.coords.latitude.toFixed(6), lng: +p.coords.longitude.toFixed(6), acc: Math.round(p.coords.accuracy) }; }, () => { scPos = null; }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 });
+  scHit = null; scMsg('Point the camera at the QR code on the card.');
+  const c = document.createElement('canvas'), x = c.getContext('2d', { willReadFrequently: true });
+  scTimer = setInterval(() => { if (!document.getElementById('scVid')) { scStop(); return; } if (scHit || !v.videoWidth) return;
+    const w = Math.min(640, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth); c.width = w; c.height = h; x.drawImage(v, 0, 0, w, h);
+    const r = window.jsQR(x.getImageData(0, 0, w, h).data, w, h, { inversionAttempts: 'dontInvert' }); if (r && r.data) scFound(r.data); }, 220);
+}
+async function scFound(code) {
+  const m = /^PEH1:([A-Za-z0-9_-]{1,40})$/.exec(String(code).trim()); if (!m) { scMsg('This is not a PEH card.', 'warn'); return; }
+  const pid = m[1], p = S.people[pid]; if (!p || p.status === 'left') { scMsg('Card not recognised in PEH (person not found or marked as left).', 'warn'); return; }
+  const day = await scLoadDay(today(), true); const mine = Object.values(day).filter(s => s.p === pid).sort((a, b) => a.t - b.t);
+  if (mine.length >= 2) { scMsg('<b>' + esc(p.name) + '</b> already has arrival and leaving scans today.', 'warn'); return; }
+  if (mine.length === 1 && Date.now() - mine[0].t < 10 * 60000) { scMsg('<b>' + esc(p.name) + '</b> was scanned in at ' + new Date(mine[0].t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + '. A leaving scan is possible after 10 minutes.', 'warn'); return; }
+  scHit = { pid, k: mine.length ? 'out' : 'in', inT: mine.length ? mine[0].t : null };
+  scMsg('<b style="font-size:16px">' + esc(p.name) + '</b> · ' + esc(entShort(p) || ownCat(p)) + ' · ' + esc(p.desig || '') + '<br><b>' + (scHit.k === 'in' ? 'ARRIVAL' : 'LEAVING') + '</b>: point the camera at his or her face, then tap <b>Take photo and save</b>.', 'good');
+  document.getElementById('scSnap').style.display = 'inline-flex'; document.getElementById('scAgain').style.display = 'inline-flex';
+}
+async function scSnap() {
+  if (!scHit) return; const v = document.getElementById('scVid'); if (!v || !v.videoWidth) return;
+  const W = 180, H = Math.round(W * 4 / 3), c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d');
+  const vw = v.videoWidth, vh = v.videoHeight, cw = Math.min(vw, vh * 3 / 4), ch = cw * 4 / 3; x.drawImage(v, (vw - cw) / 2, (vh - ch) / 2, cw, ch, 0, 0, W, H);
+  let ph = c.toDataURL('image/jpeg', 0.6); if (ph.length > 55000) ph = c.toDataURL('image/jpeg', 0.4);
+  const D = today(), t = Date.now(), site = S.sc.site, hit = scHit, p = S.people[hit.pid];
+  const rec = { p: hit.pid, site, t, k: hit.k, by: S.user.email, ph }; if (scPos) { rec.lat = scPos.lat; rec.lng = scPos.lng; rec.acc = scPos.acc; }
+  const m = D.slice(0, 7), d = D.slice(8), std = stdDay(D) || 8;
+  try {
+    const cur = (await get(ref(db, 'att/' + m + '/' + d + '/' + site))).val();
+    const upd = {}; upd['scans/' + D + '/' + push(ref(db, 'scans/' + D)).key] = rec;
+    if (hit.k === 'in') { if (!cur) upd['att/' + m + '/' + d + '/' + site] = { meta: { by: S.user.email, at: serverTimestamp(), c: serverTimestamp() }, w: { [hit.pid]: { s: 'P', h: std, ot: 0 } } };
+      else { upd['att/' + m + '/' + d + '/' + site + '/w/' + hit.pid] = { s: 'P', h: std, ot: 0 }; upd['att/' + m + '/' + d + '/' + site + '/meta/by'] = S.user.email; upd['att/' + m + '/' + d + '/' + site + '/meta/at'] = serverTimestamp(); } }
+    else { const worked = Math.max(0, (t - hit.inT) / 36e5), h = Math.round(Math.min(std, worked) * 4) / 4; rec.h = +worked.toFixed(2);
+      if (cur && cur.w && cur.w[hit.pid]) upd['att/' + m + '/' + d + '/' + site + '/w/' + hit.pid + '/h'] = h; }
+    await update(ref(db), upd);
+    log(hit.k === 'in' ? 'Scan: arrival' : 'Scan: leaving', p.name + ' · ' + dxSiteName(site) + (rec.h != null ? ' · ' + rec.h + ' h' : ''));
+    scMsg('✓ Saved: <b>' + esc(p.name) + '</b> · ' + (hit.k === 'in' ? 'arrival' : 'leaving') + ' ' + new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) + (scPos ? '' : ' (location not available)') + '. Scan the next card.', 'good');
+    S.sc.dayD = ''; delete attCache[m];
+  } catch (e) { fail(e); scMsg('Not saved. Check the internet connection and try again.', 'warn'); return; }
+  scHit = null; document.getElementById('scSnap').style.display = 'none'; document.getElementById('scAgain').style.display = 'none';
+}
+// ── Cards
+function scCardsHtml(ids) {
+  return '<div class="sc-cards">' + ids.map(k => { const p = S.people[k]; if (!p) return ''; const q = window.qrcode(0, 'M'); q.addData('PEH1:' + k); q.make();
+    return `<div class="sc-card"><div class="sc-co">${esc(entShort(p) === 'CK' ? 'CK Architecture Interiors' : entShort(p) === 'CKC' ? 'CKC Building Contracting' : 'CK · CKC')}</div><div class="sc-qr">${q.createSvgTag({ cellSize: 3, margin: 1, scalable: true })}</div><div class="sc-nm">${esc(p.name)}</div><div class="sc-ds">${esc(p.desig || nm('trades', p.trade))}</div><div class="sc-id">${esc(p.empId || '')}</div></div>`; }).join('') + '</div>';
+}
+async function scShowCards() { const ids = Object.keys(S.sc.sel).filter(k => S.sc.sel[k]); if (!ids.length) { toast('Tick at least one person.'); return; }
+  try { if (!window.qrcode) await loadJs('https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js'); } catch (e) { toast('Could not load the QR tool. Check the internet connection.'); return; }
+  S.sc.cards = ids; draw(); log('Scan cards prepared', ids.map(k => S.people[k].name).join(', ').slice(0, 280)); }
+// ── Page
+function vScan() {
+  scStop(); if (!S.sc.site) S.sc.site = scSiteDefault();
+  const tabs = [['scan', 'Scan'], ['log', 'Scan log'], ['cards', 'Cards']];
+  const head = ph('Scan attendance (pilot)', 'Scan the card, take a live photo, save. First scan of the day = arrival, second = leaving. Photos: super users only, removed after ' + SC_KEEP_DAYS + ' days.') +
+    `<div class="row no-print" style="gap:6px;margin-bottom:12px">${tabs.map(([k, l]) => `<button class="btn ${S.sc.tab === k ? 'fill' : 'tonal'} sm" data-a="scTab" data-v="${k}">${l}</button>`).join('')}</div>`;
+  if (S.sc.tab === 'cards') {
+    if (S.sc.cards) return head + `<div class="row no-print" style="margin-bottom:12px"><button class="btn fill" data-a="print">Print cards</button><button class="btn text" data-a="scCardsBack">Back</button></div><p class="note no-print">Print on A4 at 100 % (no scaling), cut out, laminate. 85 × 54 mm, bank-card size.</p>` + scCardsHtml(S.sc.cards);
+    const q = S.sc.q.toLowerCase(); const L = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left' && (!q || (p.name + ' ' + (p.empId || '')).toLowerCase().includes(q))).sort(byName);
+    return head + `<div class="card"><h2>Print QR cards</h2><p class="sub">Tick the people, then Show cards. The QR code holds only a PEH code, no ID or salary data.</p>
+      <div class="row" style="margin-bottom:10px"><input class="inp" placeholder="Search name or Emp ID" data-c="scQ" value="${esc(S.sc.q)}" style="max-width:300px"><button class="btn fill wi" data-a="scShowCards">Show cards (${Object.values(S.sc.sel).filter(Boolean).length})</button></div>
+      <div class="tw" style="max-height:460px;overflow:auto"><table><tbody>${L.slice(0, 300).map(([k, p]) => `<tr><td style="width:36px"><input type="checkbox" data-c="scSel" data-v="${k}" ${S.sc.sel[k] ? 'checked' : ''}></td><td>${esc(p.name)}</td><td class="mmeta">${esc(p.empId || '')}</td><td class="mmeta">${esc(entShort(p) || '')} · ${esc(p.desig || '')}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+  if (S.sc.tab === 'log') {
+    const D = S.sc.date; if (S.sc.dayD !== D) { scLoadDay(D, true).then(() => { if (S.view === 'scan' && S.sc.tab === 'log') draw(); }); scCleanup(); }
+    const by = {}; Object.values(S.sc.dayD === D ? (S.sc.day || {}) : {}).forEach(s => { (by[s.p] = by[s.p] || []).push(s); });
+    const rows = Object.entries(by).map(([pid, L]) => { L.sort((a, b) => a.t - b.t); const i = L.find(s => s.k === 'in'), o = L.find(s => s.k === 'out'), p = S.people[pid] || { name: '(removed)' };
+      const tm = s => s ? new Date(s.t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '—';
+      const img = s => s && s.ph ? `<img src="${s.ph}" alt="" style="width:54px;height:72px;object-fit:cover;border-radius:6px;border:1px solid var(--line)">` : (s ? '<span class="mmeta">photo removed</span>' : '');
+      const loc = s => s && s.lat != null ? `<a href="https://maps.google.com/?q=${s.lat},${s.lng}" target="_blank" rel="noopener">map</a> <span class="mmeta">±${s.acc} m</span>` : '<span class="mmeta">no location</span>';
+      return `<tr><td><b style="font-weight:500">${esc(p.name)}</b><div class="mmeta">${esc(p.empId || '')} · ${esc(dxSiteName((i || o).site))}</div></td><td>${img(i)}</td><td><b>${tm(i)}</b><div class="mmeta">${i ? loc(i) : ''}</div><div class="mmeta">${i ? esc(i.by) : ''}</div></td><td>${img(o)}</td><td><b>${tm(o)}</b><div class="mmeta">${o ? loc(o) : ''}</div></td><td class="num">${o && o.h != null ? o.h.toFixed(2) + ' h' : '—'}</td></tr>`; }).join('');
+    return head + `<div class="card"><div class="row" style="justify-content:space-between"><h2>Scans on ${fmtD(D)}</h2><input class="inp" type="date" data-c="scDate" value="${esc(D)}" style="width:auto"></div>
+      ${rows ? `<div class="tw"><table><thead><tr><th>Person</th><th>Arrival photo</th><th>Arrival</th><th>Leaving photo</th><th>Leaving</th><th class="num">Hours</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<div class="empty"><b>No scans on this day</b></div>'}
+      <p class="note">Compare the arrival and leaving photos with the person. Hours on site are from arrival to leaving; the register keeps normal hours (overtime is approved separately).</p></div>`;
+  }
+  const sites = Object.entries(S.sites).filter(([k, s]) => s.active !== false).sort(byName);
+  return head + `<div class="card"><div class="row" style="gap:10px;align-items:flex-end"><div class="field" style="margin:0"><label for="scSite">Site</label><select class="inp" id="scSite" data-c="scSite">${sites.map(([k, s]) => `<option value="${k}" ${S.sc.site === k ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>
+      <button class="btn fill wi" id="scStartBtn" data-a="scStart">Start camera</button></div>
+    <div id="scMsg" class="banner mt">Choose the site and tap Start camera. The phone asks for camera and location permission the first time.</div>
+    <div id="scCam" style="display:none;margin-top:12px"><video id="scVid" playsinline muted autoplay style="width:100%;max-width:480px;border-radius:12px;background:#000"></video>
+      <div class="row mt"><button class="btn fill wi" id="scSnap" data-a="scSnap" style="display:none">Take photo and save</button><button class="btn tonal" id="scAgain" data-a="scAgain" style="display:none">Cancel, scan again</button><button class="btn text" data-a="scStopBtn">Stop camera</button></div></div></div>`;
+}
+async function scCleanup() { // remove photos older than the keep period (records stay)
+  if (!canW() || S.sc.cleaned === today()) return; S.sc.cleaned = today();
+  try { const all = (await get(ref(db, 'scans'))).val() || {}; const lim = addDays(today(), -SC_KEEP_DAYS), upd = {};
+    Object.entries(all).forEach(([D, L]) => { if (D < lim) Object.entries(L || {}).forEach(([id, s]) => { if (s && s.ph) upd['scans/' + D + '/' + id + '/ph'] = null; }); });
+    if (Object.keys(upd).length) { await update(ref(db), upd); log('Scan photos removed (older than ' + SC_KEEP_DAYS + ' days)', Object.keys(upd).length + ' photos'); } } catch (e) {}
+}
+Object.assign(ACT, { scTab: b => { S.sc.tab = b.dataset.v; S.sc.cards = null; draw(); }, scStart, scSnap, scAgain: () => { scHit = null; document.getElementById('scSnap').style.display = 'none'; document.getElementById('scAgain').style.display = 'none'; scMsg('Point the camera at the QR code on the card.'); },
+  scStopBtn: () => { scStop(); draw(); }, scShowCards, scCardsBack: () => { S.sc.cards = null; draw(); } });
+['scSnap'].forEach(a => WRITE.add(a));
+document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
+  if (c === 'scSite') S.sc.site = t.value; else if (c === 'scSel') S.sc.sel[t.dataset.v] = t.checked; else if (c === 'scDate') { S.sc.date = t.value || today(); S.sc.dayD = ''; draw(); } });
+document.addEventListener('input', ev => { const t = ev.target; if (t.dataset && t.dataset.c === 'scQ') { S.sc.q = t.value; clearTimeout(S.sc.qt); S.sc.qt = setTimeout(() => { draw(); const el = document.querySelector('[data-c="scQ"]'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 300); } });
 
 </script>
 </body>
