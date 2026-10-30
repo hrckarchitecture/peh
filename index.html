@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&display=swap">
 <style>
-/* PEH v3.9. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
+/* PEH v4.0. This page is public code: it holds no employee data, names or amounts. All data lives in Firebase behind the rules. */
 :root{
   --bg:#f8fafd;--surface:#ffffff;--surface2:#f0f4f9;--hover:#e9eef6;--line:#dfe3eb;
   --text:#1f1f1f;--muted:#5f6368;--faint:#80868b;
@@ -732,7 +732,7 @@ function rateFor(pid, m) { const r = S.rates[pid]; if (!r) return null; const k 
 // cost of one day for one person. null = no rate on record (never estimated)
 function dayCost(p, pid, date, rec, basis) {
   const m = date.slice(0, 7), h = Number(rec.h || 0), ot = Number(rec.ot || 0); if (!h && !ot) return 0;
-  if (p.cat === 'supply') { if (basis === 'fixed') return 0; const v = companyCost(p.company, date, h, ot); return v.state === 'norate' ? null : v.cost; }
+  if (p.cat === 'supply') { if (basis === 'fixed') return 0; const v = companyCost(p.company, date, h, ot, p.desig || nm('trades', p.trade)); return v.state === 'norate' ? null : v.cost; }
   const r = rateFor(pid, m); if (!r) return null;
   const amt = basis === 'fixed' ? Number(r.fx || 0) : basis === 'variable' ? Number(r.vr || 0) : Number(r.fx || 0) + Number(r.vr || 0);
   const ms = monthStd(m); if (!ms) return null; const hr = amt / ms; return h * hr + ot * hr * Number(HRS().otf);
@@ -1017,6 +1017,7 @@ function importPeople(inp) {
 // ── Costs and rates (super users edit; CEO and Finance view)
 S.cr = { month: today().slice(0, 7) };
 function vCosts() {
+  if (S.cr.imp) return vRtImport();
   const M = S.cr.month; const ed = canW(); const H0 = HRS();
   const ckc = Object.entries(S.people).filter(([k, p]) => p.cat !== 'supply' && p.status !== 'left').sort(byName);
   const rateRows = ckc.map(([k, p]) => { const r = rateFor(k, M); const own = r && r.from === M; const fx = r ? r.fx : '', vr = r ? r.vr : '';
@@ -1026,7 +1027,7 @@ function vCosts() {
       <td class="num">${r && r.g != null ? fmtN(r.g) : '<span class="mmeta">—</span>'}</td><td class="num" style="color:var(--muted)">${r && r.b != null ? fmtN(r.b) : '—'}</td><td class="num" style="color:var(--muted)">${r && r.mol != null ? fmtN(r.mol) : '—'}</td><td>${!r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)}</span>`}</td></tr>`; }).join('');
   const cos = Object.entries(S.companies).sort((a, b) => (a[1].kind === b[1].kind ? 0 : a[1].kind === 'supply' ? -1 : 1) || String(a[1].name).localeCompare(b[1].name));
   const cRows = cos.map(([c, x]) => { const bas = coBasis(c); const r = crateFor(c, M); const own = S.crates[c] && S.crates[c][M];
-    return `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td>
+    return `<tr${x.active === false ? ' style="opacity:.55"' : ''}><td><b style="font-weight:500">${esc(x.name)}</b>${x.active === false ? ' ' + chip('', 'Ended') : ''}${x.legal ? `<div class="mmeta">${esc(x.legal)}</div>` : ''}${r && r.t ? `<div class="mmeta">${Object.values(r.t).map(t => esc(t.n) + ' ' + t.r).join(' · ')} (trade not listed: ${esc(String(rtPick(r, '')))})</div>` : ''}${bas !== 'contract' && r ? `<div class="mmeta">${r.conf ? '<span style="color:var(--good)">Confirmed by Finance (' + esc(r.conf.by) + ', ' + new Date(r.conf.at).toLocaleDateString('en-GB') + ')</span>' : '<span style="color:var(--warn)">Not confirmed by Finance</span>'}${isFin() && !r.conf ? ` <button class="btn tonal sm wi" data-a="rtConfirm" data-v="${c}">Confirm</button>` : ''}</div>` : ''}</td><td>${x.kind === 'sub' ? 'Subcontractor' : 'Supply labour'}</td>
       <td>${ed ? `<select class="inp wi" id="cb_${c}" style="width:auto">${(x.kind === 'sub' ? ['hour', 'day', 'contract'] : ['hour', 'day']).map(v => `<option value="${v}" ${bas === v ? 'selected' : ''}>${basisName(v)}</option>`).join('')}</select>` : basisName(bas)}</td>
       <td class="num">${bas === 'contract' ? '<span class="mmeta">—</span>' : ed ? `<input class="inp n wi" inputmode="decimal" id="cr_${c}" value="${own ? esc(own.r) : ''}" placeholder="${r && !own ? esc(fmtN(r.r)) : '—'}" aria-label="${esc(x.name)} rate">` : (r ? fmtN(r.r) + ' / ' + (r.u === 'day' ? 'day' : 'hour') : '—')}</td>
       <td>${bas === 'contract' ? chip('', 'Contract') : !r ? chip('warn', 'No rate') : own ? chip('good', 'Set for this month') : `<span class="mmeta">Carried from ${esc(r.from)} (${r.u === 'day' ? 'daily' : 'hourly'})</span>`}</td></tr>`; }).join('');
@@ -1040,7 +1041,7 @@ function vCosts() {
     `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>CKC monthly cost per person · ${esc(M)}</h2><p class="sub" style="margin:0">Fixed: salary, pension, gratuity accrual, flights. Variable: medical insurance, visa, training and other actual costs. A month without its own figure uses the most recent earlier month. Basic and MOL salary are shown for record only and are never used in any cost.</p></div>
       ${ed ? `<div class="row no-print"><label class="btn tonal sm wi" style="position:relative">Import from HR Portal (Excel)<input type="file" accept=".xlsx,.xls" data-c="costFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><label class="btn out sm wi" style="position:relative">Import CSV<input type="file" accept=".csv" data-c="importRates" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label><button class="btn text sm" data-a="tplRates">Template</button><button class="btn fill wi" data-a="saveRates">Save ${esc(M)}</button></div>` : ''}</div>
       ${ckc.length ? `<div class="tw mt"><table><thead><tr><th>Person</th><th class="num">Fixed (AED / month)</th><th class="num">Variable (AED / month)</th><th class="num">of which gross salary</th><th class="num" title="For record only; never used in any cost">Basic (record)</th><th class="num" title="For record only; never used in any cost">MOL (record)</th><th></th></tr></thead><tbody>${rateRows}</tbody></table></div>` : '<div class="empty"><b>No CKC people yet</b>Add or import them under People and sites first.</div>'}</div>` +
-    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Company rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supply or subcontract agreement. Choose hourly or daily per company; subcontractors on a lump-sum or measured contract are set to Contract and are not costed from hours.</p></div>${ed && cos.length ? '<button class="btn fill wi no-print" data-a="saveCrates">Save rates</button>' : ''}</div>
+    `<div class="card"><div class="row" style="justify-content:space-between"><div><h2>Company rates · ${esc(M)}</h2><p class="sub" style="margin:0">From each supply or subcontract agreement. Supply companies can have a rate per trade (from the Finance file); the rate shown in the box is used for trades not listed. Finance confirms each rate.</p></div><div class="row no-print">${ed ? `<label class="btn out wi" style="position:relative">Import companies and rates (Excel)<input type="file" accept=".xlsx,.xls" data-c="rtFile" class="wi" style="position:absolute;inset:0;opacity:0;cursor:pointer"></label>` : ''}${ed && cos.length ? '<button class="btn fill wi" data-a="saveCrates">Save rates</button>' : ''}</div></div>
       ${cos.length ? `<div class="tw mt"><table><thead><tr><th>Company</th><th>Type</th><th>Costed by</th><th class="num">Rate (AED)</th><th></th></tr></thead><tbody>${cRows}</tbody></table></div>` : '<div class="empty"><b>No companies yet</b>Add them under People and sites → Companies.</div>'}</div>` +
     (ed ? `<div class="card"><h2>Close a month</h2><p class="sub">After payroll, close the month so timekeepers can no longer change its registers. Super users can still correct it, and every change is logged.</p>
       <div class="row"><span>${esc(M)}: ${isClosed(M) ? chip('pri', 'Closed') : chip('good', 'Open')}</span><button class="btn out sm wi" data-a="closeMonth">${isClosed(M) ? 'Re-open' : 'Close'} ${esc(M)}</button></div></div>` : '');
@@ -1063,7 +1064,7 @@ function saveCrates() {
     if (bas !== coBasis(c)) { upd['companies/' + c + '/cb'] = bas; n++; }
     const cur = S.crates[c] && S.crates[c][M];
     if (bas === 'contract' || v == null) { if (cur && bas === 'contract') { upd['crates/' + c + '/' + M] = null; n++; } return; }
-    if (!cur || cur.r !== v || cur.u !== bas) { upd['crates/' + c + '/' + M] = { u: bas, r: v }; n++; } });
+    if (!cur || cur.r !== v || cur.u !== bas) { const prev = crateFor(c, M); const rec = { u: bas, r: v }; if (prev && prev.t) rec.t = prev.t; upd['crates/' + c + '/' + M] = rec; n++; } }); // a changed rate needs Finance confirmation again
   if (bad) { toast('Check the rate for ' + bad + '. Numbers only.'); return; } if (!n) { toast('Nothing changed.'); return; }
   update(ref(db), upd).then(() => { log('Company rates saved', M + ' · ' + n + ' changes'); toast('Saved'); }).catch(fail);
 }
@@ -1147,12 +1148,12 @@ function crateFor(cid, m) { const r = S.crates[cid]; if (!r) return null; const 
 const coBasis = c => { const x = S.companies[c] || {}; return x.cb || (x.kind === 'sub' ? 'contract' : 'hour'); };
 const basisName = b => ({ hour: 'Hourly', day: 'Daily', contract: 'Contract (not costed)' })[b] || b;
 // company labour cost for given normal and overtime hours on one date. state: ok | norate | contract
-function companyCost(cid, date, h, ot) {
+function companyCost(cid, date, h, ot, desig) {
   if (coBasis(cid) === 'contract') return { cost: 0, state: 'contract' };
-  const r = crateFor(cid, date.slice(0, 7)); if (!r || r.r == null) return { cost: 0, state: 'norate' };
-  const f = Number(HRS().sotf);
-  if (r.u === 'day') { const base = stdDay(date) || Number(HRS().wd); return { cost: (h / base + (ot * f) / base) * r.r, state: 'ok' }; }
-  return { cost: (h + ot * f) * r.r, state: 'ok' };
+  const r = crateFor(cid, date.slice(0, 7)); if (!r || (r.r == null && !r.t)) return { cost: 0, state: 'norate' };
+  const f = Number(HRS().sotf), rate = rtPick(r, desig); if (rate == null || isNaN(rate)) return { cost: 0, state: 'norate' };
+  if (r.u === 'day') { const base = stdDay(date) || Number(HRS().wd); return { cost: (h / base + (ot * f) / base) * rate, state: 'ok', conf: !!r.conf }; }
+  return { cost: (h + ot * f) * rate, state: 'ok', conf: !!r.conf };
 }
 const subHours = date => stdDay(date) || Number(HRS().wd);
 const datesBetween = (a, b) => { const out = []; let d = a; while (d <= b && out.length < 1900) { out.push(d); d = addDays(d, 1); } return out; };
@@ -1174,7 +1175,7 @@ function computeDash(o) {
   const siteOk = sid => (!isTK() || tkSites().includes(sid)) && (!o.site || sid === o.site) && (!o.proj || projOf(sid) === o.proj);
   const want = k => o.show === 'all' || o.show === k || (o.show === 'ckcsup' && (k === 'ckc' || k === 'supply'));
   const perDay = [], site = {}, proj = {}, comp = {}, emp = {}, st = {}, unit = {}; const DU = deptUnitMap(); let dataDays = 0, noRate = 0, contractH = 0;
-  const T = { ckc: 0, sup: 0, sub: 0, ckcH: 0, supH: 0, subH: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0 };
+  const T = { ckc: 0, sup: 0, sub: 0, ckcH: 0, supH: 0, subH: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0, unconfC: 0 };
   const bucket = (m, k, extra) => m[k] = m[k] || Object.assign({ ppl: 0, ckc: 0, sup: 0, sub: 0, h: 0, ckcC: 0, supC: 0, subC: 0, costedH: 0, sites: new Set() }, extra || {});
   days.forEach(date => {
     const day = dayData(date); const x = { date, ckc: 0, sup: 0, sub: 0, ckcH: 0, supH: 0, subH: 0, ckcC: 0, supC: 0, subC: 0 }; let any = false;
@@ -1182,14 +1183,14 @@ function computeDash(o) {
       Object.entries(r.w || {}).forEach(([pid, a]) => { const p = S.people[pid] || { name: '(person removed)', cat: 'labour' }; const isC = p.cat !== 'supply'; if (!want(isC ? 'ckc' : 'supply')) return;
         if (a.s !== 'P' && a.s !== 'WFH') return; const h = Number(a.h || 0), ot = Number(a.ot || 0), hh = h + ot;
         let c = 0, ok = true; if (cost) { const v = dayCost(p, pid, date, a, o.basis); if (v == null) { ok = false; noRate++; } else c = v; }
-        const k = isC ? 'ckc' : 'sup'; x[k]++; x[k + 'H'] += hh; x[k + 'C'] += c;
+        const k = isC ? 'ckc' : 'sup'; x[k]++; x[k + 'H'] += hh; x[k + 'C'] += c; if (!isC && cost && c && !rateConfirmed(p.company, date)) T.unconfC += c;
         const U1 = bucket(unit, isC ? homeUnit(p, DU) : siteUnit(sid)); U1.sites.add(sid);
         [S1, P1, U1].forEach(b => { b.ppl++; b[k]++; b.h += hh; b[k + 'C'] += c; if (ok) b.costedH += hh; });
         if (ok) T.costedH += hh;
         if (isC) { const e = emp[pid] = emp[pid] || { name: p.name, id: p.empId || '', trade: nm('trades', p.trade), days: 0, h: 0, c: 0, miss: 0 }; e.days++; e.h += hh; e.c += c; if (!ok) e.miss++; }
         else { const cm = bucket(comp, p.company, { kind: 'supply', days: 0, miss: 0 }); cm.days++; cm.h += hh; cm.supC += c; if (!ok) cm.miss++; cm.sites.add(sid); } });
       if (want('sub')) Object.entries(r.sub || {}).forEach(([cid, n]) => { n = Number(n || 0); if (!n) return; const hh = n * subHours(date);
-        let c = 0, state = 'ok'; if (cost && o.basis !== 'fixed') { const v = companyCost(cid, date, hh, 0); c = v.cost; state = v.state; if (state === 'norate') noRate++; if (state === 'contract') contractH += hh; }
+        let c = 0, state = 'ok'; if (cost && o.basis !== 'fixed') { const v = companyCost(cid, date, hh, 0); c = v.cost; state = v.state; if (state === 'norate') noRate++; if (state === 'contract') contractH += hh; if (state === 'ok' && c && !v.conf) T.unconfC += c; }
         x.sub += n; x.subH += hh; x.subC += c; const U2 = bucket(unit, siteUnit(sid)); U2.sites.add(sid); [S1, P1, U2].forEach(b => { b.ppl += n; b.sub += n; b.h += hh; b.subC += c; if (state === 'ok') b.costedH += hh; }); if (state === 'ok' && cost && o.basis !== 'fixed') T.costedH += hh;
         const cm = bucket(comp, cid, { kind: 'sub', days: 0, miss: 0 }); cm.days += n; cm.h += hh; cm.subC += c; if (state === 'norate') cm.miss++; cm.sites.add(sid); }); });
     if (any) { dataDays++; x.any = true; } perDay.push(x); ['ckc', 'sup', 'sub', 'ckcH', 'supH', 'subH', 'ckcC', 'supC', 'subC'].forEach(k => T[k] += x[k]);
@@ -1251,6 +1252,7 @@ function vDash() {
   return ph('Dashboard', isTK() ? 'Your sites: people and man-hours. Cost is not shown to timekeepers.' : 'Deployment, man-hours and labour cost for any period, built from the site registers.', `<div class="row no-print">${R ? '<button class="btn tonal" data-a="dashPdf">Download PDF</button>' : ''}<button class="btn text" data-a="print">Print</button></div>`) + filters +
     (stale ? '<div class="banner warn no-print">Filters changed. Click Show to update.</div>' : '') +
     `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(190px,1fr))">${tiles.join('')}</div>` +
+    (cost && R.T.unconfC > 0.5 ? `<div class="banner warn mt">AED ${aed(R.T.unconfC).replace(/^AED\s*/, '')} of supply and subcontract cost uses company rates <b style="font-weight:500">not yet confirmed by Finance</b>. Finance confirms them under Costs and rates.</div>` : '') +
     (cost && R.noRate ? `<div class="banner warn mt">${R.noRate} person-days or company-days have no rate on record, so cost is understated. Add the missing rates under Costs and rates.</div>` : '') +
     `<div class="grid g2 mt"><div class="card" style="margin:0"><div class="row" style="justify-content:space-between;align-items:flex-start"><div><h2>Per day</h2><p class="sub">${R.days} days, ${fmtD(o.from)} to ${fmtD(o.to)}.</p></div>
        <select class="inp no-print" data-c="dashChart" style="width:auto" aria-label="Chart shows">${chartOpts.map(([k, l]) => `<option value="${k}" ${o.chart === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
@@ -2570,13 +2572,14 @@ async function dxTemplate() {
   const fill = c => ({ type: 'pattern', pattern: 'solid', fgColor: { argb: c } });
   const thin = { style: 'thin', color: { argb: 'FFBFC7D1' } }, box = { top: thin, left: thin, bottom: thin, right: thin };
   const sites = Object.entries(S.sites).filter(([k, s]) => s.active !== false).sort(byName).map(([k, s]) => s.name);
-  const cos = Object.entries(S.companies).sort(byName).map(([k, c]) => [c.name, c.kind === 'sub' ? 'Subcontract' : 'Supply']);
+  const cos = Object.entries(S.companies).filter(([k]) => coActive(k)).sort(byName).map(([k, c]) => [c.name, c.kind === 'sub' ? 'Subcontract' : 'Supply']);
+  const trd = [...new Set(Object.values(S.crates || {}).flatMap(m => Object.values(m || {}).flatMap(r => Object.values((r && r.t) || {}).map(x => String(x.n).trim()))).concat(['Helper', 'Mason', 'Carpenter', 'Steel Fixer', 'Scaffolder', 'Welder', 'Electrician', 'Plumber', 'AC Technician', 'Painter', 'Gypsum Carpenter', 'Skilled Worker', 'Supervisor', 'Charge Hand', 'Driver']).filter(x => x && x !== 'All trades'))].sort();
   const stats = STAT.map(x => x[1]);
   // Lists (hidden)
   const L = wb.addWorksheet('Lists', { state: 'veryHidden' });
-  L.getRow(1).values = ['Sites', 'Companies', 'Type', 'Status', 'Document', 'Nationality'];
-  const maxL = Math.max(sites.length, cos.length, stats.length, DX_DOC.length, DX_NAT.length);
-  for (let i = 0; i < maxL; i++) L.getRow(i + 2).values = [sites[i] || null, (cos[i] || [])[0] || null, (cos[i] || [])[1] || null, stats[i] || null, (DX_DOC[i] || [])[1] || null, DX_NAT[i] || null];
+  L.getRow(1).values = ['Sites', 'Companies', 'Type', 'Status', 'Document', 'Nationality', 'Trades'];
+  const maxL = Math.max(sites.length, cos.length, stats.length, DX_DOC.length, DX_NAT.length, trd.length);
+  for (let i = 0; i < maxL; i++) L.getRow(i + 2).values = [sites[i] || null, (cos[i] || [])[0] || null, (cos[i] || [])[1] || null, stats[i] || null, (DX_DOC[i] || [])[1] || null, DX_NAT[i] || null, trd[i] || null];
   const rng = (col, n) => `Lists!$${col}$2:$${col}$${Math.max(2, n + 1)}`;
   const LS = rng('A', sites.length), LC = rng('B', cos.length), LCT = `Lists!$B$2:$C$${Math.max(2, cos.length + 1)}`, LST = rng('D', stats.length), LD = rng('E', DX_DOC.length), LN = rng('F', DX_NAT.length);
   // How to fill
@@ -2634,6 +2637,7 @@ async function dxTemplate() {
     for (let c = 1; c <= 13; c++) r.getCell(c).border = box;
   }
   const oEnd = 3 + nRows; O.getColumn(1).hidden = true;
+  O.dataValidations.add(`C4:C${oEnd}`, { type: 'list', allowBlank: true, formulae: [rng('G', trd.length)], showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Other designation?', error: 'Not in the list. Click Yes to keep it (the company\'s general rate is then used).' });
   O.dataValidations.add(`D4:D${oEnd}`, { type: 'list', allowBlank: true, formulae: [LN], showErrorMessage: true, errorStyle: 'warning', errorTitle: 'Other nationality?', error: 'Not in the list. Click Yes to keep it.' });
   O.dataValidations.add(`E4:E${oEnd}`, { type: 'list', allowBlank: true, formulae: [LC], showErrorMessage: true, error: 'Choose the company from the list. A new company must first be added in PEH by HR.' });
   O.dataValidations.add(`G4:G${oEnd}`, { type: 'list', allowBlank: true, formulae: [LD], showErrorMessage: true, error: 'Choose Emirates ID, Passport or Labour card.' });
@@ -2844,6 +2848,96 @@ Object.assign(ACT, { dxTpl: () => dxTemplate(), dxSave, dxCancel: () => { S.dx.i
 document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
   if (c === 'dxDate') S.dx.date = t.value || today(); else if (c === 'dxFile') dxFile(t); });
 document.addEventListener('input', ev => { const t = ev.target; if (t.dataset && t.dataset.c === 'dxQ') { S.dx.q = t.value; clearTimeout(S.dx.qt); S.dx.qt = setTimeout(() => { draw(); const el = document.querySelector('[data-c="dxQ"]'); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 300); } });
+
+
+// ══ v4.0: supply rates per trade, Finance confirmation, company import ════════════════════════
+// A supply company can have one rate per trade (e.g. Mason 16 / hour, Helper 13 / hour). A supply
+// worker's cost uses the rate of his designation; if his trade is not listed, the "Skilled worker"
+// rate, otherwise the company's highest rate (agreed with HR until Finance gives the rule).
+// Every rate starts "not confirmed"; Finance confirms it in PEH (who and when is kept).
+const rtKey = s => String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+function rtPick(r, desig) { // r: rate record {u, r, t}
+  const T = r && r.t ? Object.values(r.t) : []; if (!T.length) return r ? Number(r.r) : null;
+  const d = rtKey(desig);
+  if (d) { const ex = T.find(x => rtKey(x.n) === d) || T.find(x => d.includes(rtKey(x.n)) && rtKey(x.n).length >= 4) || T.find(x => rtKey(x.n).includes(d) && d.length >= 4); if (ex) return Number(ex.r); }
+  if (d.includes('helper')) { const hp = T.find(x => rtKey(x.n).includes('helper')); if (hp) return Number(hp.r); }
+  const sk = T.find(x => /skilled/.test(rtKey(x.n))); if (sk) return Number(sk.r);
+  return Math.max(...T.map(x => Number(x.r) || 0));
+}
+function rtDefault(trades) { // default rate stored in r: skilled worker, else highest
+  const sk = trades.find(x => /skilled/.test(rtKey(x.n))); return sk ? Number(sk.r) : Math.max(...trades.map(x => Number(x.r) || 0));
+}
+const rateConfirmed = (cid, date) => { const r = crateFor(cid, date.slice(0, 7)); return !!(r && r.conf); };
+const coActive = c => (S.companies[c] || {}).active !== false;
+// Finance confirms the rate record in force for the month shown
+async function rtConfirm(c) {
+  const M = S.cr.month, r = crateFor(c, M); if (!r) { toast('No rate on record for this company.'); return; }
+  const x = S.companies[c] || {}; const list = r.t ? Object.values(r.t).map(t => t.n + ' ' + t.r).join(', ') : String(r.r);
+  if (!confirm('Confirm the rates of ' + x.name + ' from ' + r.from + ' (' + (r.u === 'day' ? 'per day' : 'per hour') + '): ' + list + '?')) return;
+  try { await set(ref(db, 'crates/' + c + '/' + r.from + '/conf'), { by: S.user.email, at: Date.now() }); log('Company rates confirmed by Finance', x.name + ' · from ' + r.from + ' · ' + list); toast('Confirmed'); } catch (e) { fail(e); }
+}
+// ── Import of the "companies and rates" Excel completed by Finance
+const RT_EXTRA = [['Khayat Aldawa', 'supply'], ['Velvet', 'supply'], ['Classic Plaster', 'sub'], ['Deco Paint', 'sub'], ['Alfalaf', 'sub'], ['CWP', 'sub'], ['Wallpaper Team', 'sub'], ['Homeselect General Trading', 'sub'], ['Future Glass', 'sub']];
+async function rtFile(inp) {
+  const f = inp.files && inp.files[0]; if (!f) return; inp.value = '';
+  try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader. Check the internet connection.'); return; }
+  let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array' }); } catch (e) { toast('Could not read that file.'); return; }
+  const sn = wb.SheetNames.find(n => /compan/i.test(n)) || wb.SheetNames[0];
+  const R = window.XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' });
+  const hi = R.findIndex(r => r.some(c => /name as seen/i.test(String(c)))); if (hi < 0) { toast('This is not the companies and rates template.'); return; }
+  const H = R[hi].map(c => String(c).toLowerCase());
+  const col = rx => H.findIndex(h => rx.test(h));
+  const C = { no: col(/^no/), nm: col(/name as seen/), legal: col(/correct/), type: col(/^type/), cb: col(/costed by/), rate: col(/^rate \(aed\)|^rate$/), from: col(/applies from/), act: col(/still working/), fin: col(/confirmed by finance/), note: col(/^notes/) };
+  const out = [], E = []; let cur = null;
+  R.slice(hi + 1).forEach((r, i) => { const g = k => C[k] >= 0 ? String(r[C[k]] == null ? '' : r[C[k]]).trim() : '';
+    const nmv = g('nm'), legal = g('legal'), type = g('type');
+    if (type) { // company line
+      const names = nmv.split('/').map(s => s.trim()).filter(Boolean); const kind = /sub/i.test(type) ? 'sub' : 'supply';
+      const cbx = g('cb').toLowerCase(); const cb = /contract/.test(cbx) ? (kind === 'sub' ? 'contract' : 'hour') : /da/.test(cbx) ? 'day' : 'hour';
+      cur = { name: (names[0] || legal).slice(0, 120), alias: names.slice(1).join(' / ').slice(0, 300), legal: legal.slice(0, 200), kind, cb, trades: [], from: '', act: g('act'), note: g('note') };
+      if (!cur.name) { E.push('Row ' + (hi + i + 2) + ': company without a name.'); cur = null; return; }
+      out.push(cur);
+      if (g('rate') && cb !== 'contract') cur.trades.push({ n: 'All trades', r: Number(g('rate')), from: g('from') });
+    } else if (cur && nmv && g('rate') !== '') { // trade line under the company
+      const v = Number(g('rate')); if (isNaN(v) || v < 0) { E.push('Row ' + (hi + i + 2) + ': ' + cur.name + ' / ' + nmv + ': rate is not a number.'); return; }
+      cur.trades.push({ n: nmv.slice(0, 60), r: v, from: g('from') }); if (g('act') && !cur.act) cur.act = g('act'); if (g('note') && !cur.note) cur.note = g('note');
+    } });
+  const existing = {}; Object.entries(S.companies).forEach(([k, c]) => { [c.name, c.legal].concat(String(c.alias || '').split('/')).forEach(n => { if (n && n.trim()) existing[dxNorm(n)] = k; }); });
+  out.forEach(c => { c.k = [c.name, c.legal].concat(c.alias.split('/')).map(dxNorm).map(n => existing[n]).find(Boolean) || '';
+    const fm = c.trades.map(t => /^\d{4}-\d{2}$/.test(t.from) ? t.from : '').filter(Boolean).sort(); c.month = fm.pop() || today().slice(0, 7);
+    c.active = !/^no/i.test(c.act); });
+  const extra = RT_EXTRA.filter(([n]) => !out.some(c => [c.name].concat(c.alias.split('/')).some(a => dxNorm(a) === dxNorm(n))) && !existing[dxNorm(n)]);
+  S.cr.imp = { file: f.name, list: out, E, extra, addExtra: true }; draw(); window.scrollTo(0, 0);
+}
+function vRtImport() {
+  const I = S.cr.imp;
+  const rows = I.list.map(c => `<tr><td><b style="font-weight:500">${esc(c.name)}</b>${c.alias ? `<div class="mmeta">also: ${esc(c.alias)}</div>` : ''}<div class="mmeta">${esc(c.legal)}</div></td><td>${c.kind === 'sub' ? 'Subcontract' : 'Supply'}</td><td>${basisName(c.cb)}</td>
+      <td>${c.cb === 'contract' ? '<span class="mmeta">not costed</span>' : c.trades.length ? c.trades.map(t => esc(t.n) + ' <b>' + t.r + '</b>').join('<br>') + `<div class="mmeta">from ${esc(c.month)}</div>` : chip('warn', 'no rate')}</td>
+      <td>${c.active ? chip('good', 'Active') : chip('', 'Ended')}</td><td>${c.k ? chip('', 'update') : chip('pri', 'new')}</td><td class="mmeta" style="max-width:220px">${esc(c.note || '')}</td></tr>`).join('');
+  return ph('Import companies and rates', esc(I.file) + ': ' + I.list.length + ' companies. Nothing is saved yet. All rates are saved as "not confirmed" until Finance confirms them in PEH.') +
+    (I.E.length ? `<div class="card" style="border-color:var(--bad)"><h2 style="color:var(--bad)">Problems</h2><ul class="bul">${I.E.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : '') +
+    `<div class="card"><div class="tw"><table><thead><tr><th>Company (name used on site)</th><th>Type</th><th>Costed by</th><th>Rates (AED)</th><th>Status</th><th></th><th>Notes</th></tr></thead><tbody>${rows}</tbody></table></div>
+     ${I.extra.length ? `<label class="row mt" style="gap:8px;align-items:flex-start"><input type="checkbox" data-c="rtExtra" ${I.addExtra ? 'checked' : ''}><span>Also add <b>${I.extra.length}</b> companies from the daily site report that are not in this file, without rates for now: ${I.extra.map(x => esc(x[0]) + ' (' + (x[1] === 'sub' ? 'subcontract' : 'supply') + ')').join(', ')}.</span></label>` : ''}
+     <div class="row mt"><button class="btn fill wi" data-a="rtSave" ${I.E.length ? 'disabled' : ''}>Save companies and rates</button><button class="btn text" data-a="rtCancel">Cancel</button></div>
+     <p class="note">A company already in PEH (same name, other name or legal name) is updated, not duplicated. Rates of subcontractors on contract are not used for labour cost.</p></div>`;
+}
+async function rtSave() {
+  const I = S.cr.imp; if (!I || I.E.length) return; const upd = {}; let nC = 0, nR = 0;
+  I.list.forEach(c => { const k = c.k || push(ref(db, 'companies')).key; const old = S.companies[k] || {};
+    const rec = { name: c.name, kind: c.kind, cb: c.cb, active: c.active }; if (c.legal) rec.legal = c.legal; if (c.alias) rec.alias = c.alias;
+    if (JSON.stringify(Object.assign({}, old, rec)) !== JSON.stringify(old) || !c.k) { upd['companies/' + k] = Object.assign({}, old, rec); nC++; }
+    if (c.cb !== 'contract' && c.trades.length) { const t = {}; c.trades.forEach(x => { t[rtKey(x.n) || 'all'] = { n: x.n, r: x.r }; });
+      const cur = (S.crates[k] || {})[c.month]; const rr = { u: c.cb, r: rtDefault(c.trades), t };
+      if (!cur || JSON.stringify({ u: cur.u, r: cur.r, t: cur.t }) !== JSON.stringify(rr)) { upd['crates/' + k + '/' + c.month] = rr; nR++; } } });
+  if (I.addExtra) I.extra.forEach(([n, kind]) => { upd['companies/' + push(ref(db, 'companies')).key] = { name: n, kind, cb: kind === 'sub' ? 'contract' : 'hour', active: true }; nC++; });
+  if (!nC && !nR) { toast('Nothing changed.'); S.cr.imp = null; draw(); return; }
+  if (!confirm('Save ' + nC + ' companies and ' + nR + ' rate records?')) return;
+  try { await update(ref(db), upd); log('Companies and rates imported', I.file + ' · ' + nC + ' companies, ' + nR + ' rate records (not confirmed)'); toast('Saved'); S.cr.imp = null; draw(); } catch (e) { fail(e); }
+}
+Object.assign(ACT, { rtConfirm: b => rtConfirm(b.dataset.v), rtSave, rtCancel: () => { S.cr.imp = null; draw(); } });
+WRITE.add('rtSave');
+document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
+  if (c === 'rtFile') rtFile(t); else if (c === 'rtExtra' && S.cr.imp) S.cr.imp.addExtra = t.checked; });
 
 </script>
 </body>
