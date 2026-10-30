@@ -2548,6 +2548,8 @@ document.addEventListener('change', ev => { const t = ev.target, c = t.dataset &
 S.subw = {}; S.wdocs = {};
 S.dx = { date: today(), imp: null, q: '' };
 const DX_PW = 'PEH2026hr';
+// Excel's short password check value for workbook protection (the standard legacy algorithm)
+function dxHash(pw) { let h = 0; for (let i = pw.length - 1; i >= 0; i--) { h = ((h >> 14) & 1) | ((h << 1) & 0x7fff); h ^= pw.charCodeAt(i); } h = ((h >> 14) & 1) | ((h << 1) & 0x7fff); h ^= pw.length; h ^= 0xCE4B; return h.toString(16).toUpperCase().padStart(4, '0'); }
 const DX_DOC = [['EID', 'Emirates ID'], ['PP', 'Passport'], ['LC', 'Labour card']];
 const DX_NAT = ['India', 'Pakistan', 'Bangladesh', 'Nepal', 'Sri Lanka', 'Philippines', 'Egypt', 'Syria', 'Jordan', 'Lebanon', 'Sudan', 'Uganda', 'Kenya', 'Ghana', 'Nigeria', 'Afghanistan', 'China', 'United Arab Emirates', 'Other'];
 const dxDocN = s => String(s || '').toUpperCase().replace(/[\s-]/g, '');
@@ -2624,7 +2626,7 @@ async function dxTemplate() {
   C.getColumn(1).hidden = true;
   C.addConditionalFormatting({ ref: `F6:G${cEnd}`, rules: [{ type: 'expression', formulae: ['OR(AND($F6="",$G6<>""),AND($G6="",$F6<>""))'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } } }] });
   C.addConditionalFormatting({ ref: `G6:G${cEnd}`, rules: [{ type: 'expression', formulae: ['$G6=""'], style: { fill: { type: 'pattern', pattern: 'solid', bgColor: { argb: RED } } } }] });
-  await C.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatRows: true });
+  await C.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true, formatCells: false, formatColumns: false, formatRows: false, insertColumns: false, insertRows: false, deleteColumns: false, deleteRows: false, sort: false, autoFilter: false });
   // Supply and subcontract
   const O = wb.addWorksheet('Supply and subcontract', { views: [{ state: 'frozen', ySplit: 3 }] });
   O.columns = [{ width: 4 }, { width: 28 }, { width: 22 }, { width: 16 }, { width: 26 }, { width: 13 }, { width: 15 }, { width: 20 }, { width: 26 }, { width: 12 }, { width: 11 }, { width: 10 }, { width: 24 }];
@@ -2654,7 +2656,7 @@ async function dxTemplate() {
   O.addConditionalFormatting({ ref: `C4:J${oEnd}`, rules: [{ type: 'expression', formulae: ['AND($B4<>"",C4="",COLUMN(C4)<>6,OR(COLUMN(C4)<9,$I4<>"",$J4<>""))'], style: redS }] });
   O.addConditionalFormatting({ ref: `H4:H${oEnd}`, rules: [{ type: 'expression', formulae: [`AND($H4<>"",COUNTIF($H$4:$H$${oEnd},$H4)>1)`], style: redS }] });
   O.addConditionalFormatting({ ref: `I4:J${oEnd}`, rules: [{ type: 'expression', formulae: ['OR(AND($I4<>"",$J4=""),AND($J4<>"",$I4=""))'], style: redS }] });
-  await O.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatRows: true });
+  await O.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true, formatCells: false, formatColumns: false, formatRows: false, insertColumns: false, insertRows: false, deleteColumns: false, deleteRows: false, sort: false, autoFilter: false });
   // Check
   const K = wb.addWorksheet('Check');
   K.columns = [{ width: 30 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 16 }, { width: 12 }];
@@ -2671,9 +2673,14 @@ async function dxTemplate() {
       { formula: `COUNTIFS(${oS},${a},${oT},"Supply",${oA},"Present")` }, { formula: `COUNTIFS(${oS},${a},${oT},"Subcontract",${oA},"Present")` }, { formula: `B${rr}+D${rr}+E${rr}` }];
     for (let c = 1; c <= 6; c++) K.getRow(rr).getCell(c).border = box; });
   const tr = 8 + sites.length; K.getRow(tr).values = ['Total', ...['B', 'C', 'D', 'E', 'F'].map(c => ({ formula: `SUM(${c}8:${c}${tr - 1})` }))]; K.getRow(tr).font = { bold: true };
-  await K.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: true });
+  await K.protect(DX_PW, { selectLockedCells: true, selectUnlockedCells: false });
   wb.worksheets.forEach(ws => { if (ws.name === 'How to fill') wb.views = [{ activeTab: 1 }]; });
-  const buf = await wb.xlsx.writeBuffer();
+  let buf = await wb.xlsx.writeBuffer();
+  // Lock the workbook structure too (no adding, deleting, renaming, moving or un-hiding tabs), as in the heads' files
+  try { await loadJs('https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js');
+    const z = await window.JSZip.loadAsync(buf); let x = await z.file('xl/workbook.xml').async('string');
+    if (!/workbookProtection/.test(x)) { x = x.replace(/<bookViews/, '<workbookProtection workbookPassword="' + dxHash(DX_PW) + '" lockStructure="1"/><bookViews'); z.file('xl/workbook.xml', x); buf = await z.generateAsync({ type: 'uint8array', compression: 'DEFLATE' }); }
+  } catch (e) { /* the tabs stay protected even if this extra lock cannot be added */ }
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })); a.download = 'PEH-Daily-Register-' + D + '.xlsx'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   log('Daily register template downloaded', D + ' · ' + ckc.length + ' CKC staff, ' + known.length + ' outside workers');
 }
