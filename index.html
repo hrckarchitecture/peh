@@ -2954,9 +2954,16 @@ async function siteRemove(k) {
   if (!used) { if (!confirm('Remove the site "' + x.name + '"? Nothing is recorded on it.')) return;
     try { await remove(ref(db, 'sites/' + k)); log('Site removed', x.name); toast('Removed'); } catch (e) { fail(e); } return; }
   const others = Object.entries(S.sites).filter(([i]) => i !== k).sort(byName);
-  modal('Remove "' + x.name + '"', [{ id: 'to', l: 'Move everything recorded on this site to', t: 'sel', v: '', o: [['', '— choose the site to keep —'], ...others.map(([i, s]) => [i, s.name])] }],
+  const canEmpty = !days.length; // no registers: people can simply be left without a usual site
+  modal('Remove "' + x.name + '"', [{ id: 'to', l: canEmpty ? 'Move the people on this site to (or leave them without a site)' : 'Move everything recorded on this site to', t: 'sel', v: '', o: [['', '— choose —'], ...(canEmpty ? [['__none', 'No site: leave their usual site empty']] : []), ...others.map(([i, s]) => [i, s.name])] }],
     async v => {
-      if (!v.to) { toast('Choose the site to keep.'); return; }
+      if (!v.to) { toast(canEmpty ? 'Choose a site, or "No site".' : 'Choose the site to keep.'); return; }
+      if (v.to === '__none') { const upd = {};
+        ppl.forEach(p => upd['people/' + p + '/site'] = null); sw.forEach(p => upd['subw/' + p + '/site'] = null);
+        obs.forEach(o => { upd['hse/obs/' + o + '/site'] = null; upd['hse/obs/' + o + '/proj'] = x.name; });
+        tks.forEach(u => { upd['access/' + u + '/sites/' + k] = null; }); upd['sites/' + k] = null;
+        if (!confirm('Remove "' + x.name + '" and leave ' + ppl.length + ' people without a usual site?')) return;
+        try { await update(ref(db), upd); log('Site removed', x.name + ' · ' + ppl.length + ' people left without a usual site'); closeModal(); toast('Removed'); } catch (e) { fail(e); } return; }
       const to = v.to, upd = {};
       days.forEach(([m, d]) => { const src = att[m][d][k], dst = att[m][d][to];
         if (!dst) upd['att/' + m + '/' + d + '/' + to] = src;
@@ -2970,7 +2977,7 @@ async function siteRemove(k) {
       upd['sites/' + k] = null;
       if (!confirm('Move ' + days.length + ' day registers, ' + ppl.length + ' people, ' + sw.length + ' subcontract workers, ' + obs.length + ' HSE items and ' + tks.length + ' timekeeper logins from "' + x.name + '" to "' + S.sites[to].name + '", then remove "' + x.name + '"?')) return;
       try { await update(ref(db), upd); Object.keys(attCache).forEach(m => delete attCache[m]); log('Site removed and merged', x.name + ' → ' + S.sites[to].name + ' · ' + days.length + ' registers, ' + ppl.length + ' people'); closeModal(); toast('Done'); } catch (e) { fail(e); }
-    }, '<p class="note" style="margin-right:auto;max-width:420px">Found on "' + esc(x.name) + '": ' + days.length + ' day registers, ' + ppl.length + ' people, ' + sw.length + ' subcontract workers, ' + obs.length + ' HSE items, ' + tks.length + ' timekeeper logins. Where both sites have a register on the same day, they are added together.</p>');
+    }, '<p class="note" style="margin-right:auto;max-width:420px">Found on "' + esc(x.name) + '": ' + days.length + ' day registers, ' + ppl.length + ' people' + (ppl.length ? ' (' + ppl.slice(0, 8).map(p => esc(S.people[p].name)).join(', ') + (ppl.length > 8 ? '…' : '') + ')' : '') + ', ' + sw.length + ' subcontract workers, ' + obs.length + ' HSE items, ' + tks.length + ' timekeeper logins. Where both sites have a register on the same day, they are added together.</p>');
 }
 Object.assign(ACT, { siteRemove: b => siteRemove(b.dataset.v) });
 WRITE.add('siteRemove');
