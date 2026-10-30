@@ -950,7 +950,7 @@ function vPeople() {
     const col = t; const extra = { sites: ['project', 'Project'], trades: ['group', 'Trade group'], companies: ['kind', 'Type'] }[t];
     const list = Object.entries(S[col]).sort(byName);
     body = `<div class="row no-print" style="justify-content:flex-end;margin-bottom:12px"><button class="btn fill wi" data-a="editMaster" data-v="">Add ${t === 'sites' ? 'site' : t === 'trades' ? 'trade' : 'company'}</button></div>
-      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>${extra[1]}</th>${t === 'sites' ? '<th>Region</th><th>Status</th>' : ''}<th></th></tr></thead><tbody>${list.map(([k, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${esc(t === 'companies' ? (x.kind === 'sub' ? 'Subcontractor' : 'Supply labour') + ' · ' + basisName(coBasis(k)) : x[extra[0]] || '')}</td>${t === 'sites' ? `<td>${esc(x.region || '')}</td><td>${x.active === false ? chip('', 'Closed') : chip('good', 'Active')}</td>` : ''}<td><button class="btn text sm wi" data-a="editMaster" data-v="${k}">Edit</button></td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>Nothing added yet</b></div>'}
+      ${list.length ? `<div class="tw"><table><thead><tr><th>Name</th><th>${extra[1]}</th>${t === 'sites' ? '<th>Region</th><th>Status</th>' : ''}<th></th></tr></thead><tbody>${list.map(([k, x]) => `<tr><td><b style="font-weight:500">${esc(x.name)}</b></td><td>${esc(t === 'companies' ? (x.kind === 'sub' ? 'Subcontractor' : 'Supply labour') + ' · ' + basisName(coBasis(k)) : x[extra[0]] || '')}</td>${t === 'sites' ? `<td>${esc(x.region || '')}</td><td>${x.active === false ? chip('', 'Closed') : chip('good', 'Active')}</td>` : ''}<td style="white-space:nowrap"><button class="btn text sm wi" data-a="editMaster" data-v="${k}">Edit</button>${t === 'sites' && canW() ? `<button class="btn text sm wi" data-a="siteRemove" data-v="${k}" style="color:var(--bad)">Remove</button>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty"><b>Nothing added yet</b></div>'}
       <p class="note">${t === 'companies' ? 'One spelling per company. Timekeepers pick from this list, so totals by company always add up.' : t === 'trades' ? 'Each trade belongs to one group (Civil, MEP, Joinery, Staff, Drivers, Office) for the summaries.' : 'Sites with the same project name are added together in project reports.'}</p>`;
   }
   return ph('People and sites', 'Master lists used by the registers and reports. Salaries are not stored here; see Costs and rates.') +
@@ -985,7 +985,9 @@ function editMaster(k) {
     if (Object.entries(S[col]).some(([i, y]) => i !== k && String(y.name).trim().toLowerCase() === r.name.trim().toLowerCase())) { toast('That name already exists.'); return; }
     const rec = { name: r.name.slice(0, 120) }; if (col === 'sites') { if (r.project) rec.project = r.project.slice(0, 120); if (r.region) rec.region = r.region.slice(0, 80); rec.active = r.active === '1'; if (k && S.sites[k] && S.sites[k].unit) rec.unit = S.sites[k].unit; } if (col === 'trades') rec.group = r.group; if (col === 'companies') { rec.kind = r.kind; if (r.kind === 'supply' && r.cb === 'contract') { toast('Supply labour is costed hourly or daily. Contract is for subcontractors only.'); return; } rec.cb = r.cb; }
     const id = k || push(ref(db, col)).key;
-    set(ref(db, col + '/' + id), rec).then(() => { log((k ? 'Edited ' : 'Added ') + col.slice(0, -1), rec.name); closeModal(); toast('Saved'); }).catch(fail);
+    const keep = k && S[col][k] ? Object.assign({}, S[col][k], rec) : rec; // keep fields the form does not show (legal name, other names, unit...)
+    if (col === 'sites' && k && S.sites[k] && S.sites[k].unit && !rec.unit) keep.unit = S.sites[k].unit;
+    set(ref(db, col + '/' + id), keep).then(() => { log((k ? 'Edited ' : 'Added ') + col.slice(0, -1), rec.name); closeModal(); toast('Saved'); }).catch(fail);
   });
 }
 const PEOPLE_COLS = ['emp_id', 'name', 'category', 'trade', 'department', 'designation', 'site', 'company', 'status', 'joined', 'entity'];
@@ -2938,6 +2940,40 @@ Object.assign(ACT, { rtConfirm: b => rtConfirm(b.dataset.v), rtSave, rtCancel: (
 WRITE.add('rtSave');
 document.addEventListener('change', ev => { const t = ev.target, c = t.dataset && t.dataset.c; if (!c) return;
   if (c === 'rtFile') rtFile(t); else if (c === 'rtExtra' && S.cr.imp) S.cr.imp.addExtra = t.checked; });
+
+
+// ── Remove a site (duplicates). Nothing is lost: everything recorded on it can be moved to another site first.
+async function siteRemove(k) {
+  const x = S.sites[k]; if (!x) return;
+  let att = {}; try { att = (await get(ref(db, 'att'))).val() || {}; } catch (e) { toast('Could not check the registers. Try again.'); return; }
+  const days = []; Object.entries(att).forEach(([m, D]) => Object.entries(D || {}).forEach(([d, sites]) => { if (sites && sites[k]) days.push([m, d]); }));
+  const ppl = Object.keys(S.people || {}).filter(p => S.people[p].site === k), sw = Object.keys(S.subw || {}).filter(p => S.subw[p].site === k);
+  const obs = Object.keys((S.hse && S.hse.obs) || {}).filter(o => S.hse.obs[o].site === k);
+  const tks = Object.entries(S.access || {}).filter(([u, a]) => a && a.sites && a.sites[k]).map(([u]) => u);
+  const used = days.length + ppl.length + sw.length + obs.length + tks.length;
+  if (!used) { if (!confirm('Remove the site "' + x.name + '"? Nothing is recorded on it.')) return;
+    try { await remove(ref(db, 'sites/' + k)); log('Site removed', x.name); toast('Removed'); } catch (e) { fail(e); } return; }
+  const others = Object.entries(S.sites).filter(([i]) => i !== k).sort(byName);
+  modal('Remove "' + x.name + '"', [{ id: 'to', l: 'Move everything recorded on this site to', t: 'sel', v: '', o: [['', '— choose the site to keep —'], ...others.map(([i, s]) => [i, s.name])] }],
+    async v => {
+      if (!v.to) { toast('Choose the site to keep.'); return; }
+      const to = v.to, upd = {};
+      days.forEach(([m, d]) => { const src = att[m][d][k], dst = att[m][d][to];
+        if (!dst) upd['att/' + m + '/' + d + '/' + to] = src;
+        else { const w = Object.assign({}, src.w || {}, dst.w || {}), sub = Object.assign({}, dst.sub || {}), subn = Object.assign({}, src.subn || {}, dst.subn || {});
+          Object.entries(src.sub || {}).forEach(([c, n]) => { sub[c] = Number(sub[c] || 0) + Number(n || 0); });
+          const rec = { meta: Object.assign({}, dst.meta) }; if (Object.keys(w).length) rec.w = w; if (Object.keys(sub).length) rec.sub = sub; if (Object.keys(subn).length) rec.subn = subn;
+          upd['att/' + m + '/' + d + '/' + to] = rec; }
+        upd['att/' + m + '/' + d + '/' + k] = null; });
+      ppl.forEach(p => upd['people/' + p + '/site'] = to); sw.forEach(p => upd['subw/' + p + '/site'] = to); obs.forEach(o => upd['hse/obs/' + o + '/site'] = to);
+      tks.forEach(u => { upd['access/' + u + '/sites/' + k] = null; upd['access/' + u + '/sites/' + to] = true; });
+      upd['sites/' + k] = null;
+      if (!confirm('Move ' + days.length + ' day registers, ' + ppl.length + ' people, ' + sw.length + ' subcontract workers, ' + obs.length + ' HSE items and ' + tks.length + ' timekeeper logins from "' + x.name + '" to "' + S.sites[to].name + '", then remove "' + x.name + '"?')) return;
+      try { await update(ref(db), upd); Object.keys(attCache).forEach(m => delete attCache[m]); log('Site removed and merged', x.name + ' → ' + S.sites[to].name + ' · ' + days.length + ' registers, ' + ppl.length + ' people'); closeModal(); toast('Done'); } catch (e) { fail(e); }
+    }, '<p class="note" style="margin-right:auto;max-width:420px">Found on "' + esc(x.name) + '": ' + days.length + ' day registers, ' + ppl.length + ' people, ' + sw.length + ' subcontract workers, ' + obs.length + ' HSE items, ' + tks.length + ' timekeeper logins. Where both sites have a register on the same day, they are added together.</p>');
+}
+Object.assign(ACT, { siteRemove: b => siteRemove(b.dataset.v) });
+WRITE.add('siteRemove');
 
 </script>
 </body>
