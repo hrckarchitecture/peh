@@ -709,7 +709,7 @@ function loadStarter(inp) {
 // ══ Step 2: site attendance, manpower, people master, costs and reports ══
 const STAT = [['P', 'Present'], ['A', 'Absent'], ['SL', 'Sick leave'], ['AL', 'Annual leave'], ['UL', 'Unpaid leave'], ['CO', 'Comp. off'], ['WFH', 'Work from home'], ['LL', 'Long leave'], ['NJ', 'Not yet in office']];
 const LEAVE = s => ['SL', 'AL', 'UL', 'CO', 'LL'].includes(s);
-const CATS = [['staff', 'CKC staff'], ['labour', 'CKC labour'], ['supply', 'Supply labour']];
+const CATS = [['staff', 'Staff (CK + CKC)'], ['labour', 'Labour (CK + CKC)'], ['supply', 'Supply labour']];
 const catName = c => c === 'sub' ? 'Subcontractors' : (CATS.find(x => x[0] === c) || [c, c])[1];
 const TGROUPS = ['Civil', 'MEP', 'Joinery', 'Staff', 'Drivers', 'Office'];
 const isTK = () => !!(S.acc && S.acc.role === 'timekeeper');
@@ -1134,7 +1134,7 @@ async function manpowerPdf() {
   try {
     const P = await pdfDoc('Daily manpower report · ' + new Date(D + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
       'Total deployed ' + tot + ' · CKC ' + (T.staff + T.labour) + ' (' + T.staff + ' staff, ' + T.labour + ' labour) · supply ' + T.supply + ' · subcontract ' + T.sub + ' · registers missing ' + T.miss + ' of ' + sites.length + '\nCKC and supply status: ' + STAT.map(([c, l]) => l + ' ' + (st[c] || 0)).join(' · '));
-    const hd = ['Site', 'CKC staff', 'CKC labour', 'Supply', 'Subcontract', 'Total', 'Absent / leave', 'Register'];
+    const hd = ['Site', 'Staff (CK + CKC)', 'Labour (CK + CKC)', 'Supply', 'Subcontract', 'Total', 'Absent / leave', 'Register'];
     let y = P.table(34, hd, rows.concat([['Total', String(T.staff), String(T.labour), String(T.supply), String(T.sub), String(tot), String(T.al), '']]), { columnStyles: Object.assign(numAlign(7), { 7: { halign: 'left' } }),
       didParseCell: c => { if (c.section === 'body' && c.row.index === rows.length) { c.cell.styles.fontStyle = 'bold'; c.cell.styles.fillColor = [232, 240, 254]; } if (c.section === 'body' && c.column.index === 7 && c.cell.raw === 'NOT SUBMITTED') c.cell.styles.textColor = [197, 34, 31]; } });
     const cr = Object.entries(comp).sort((a, b) => b[1].n - a[1].n).map(([c, x]) => [nm('companies', c), x.k, String(x.n)]);
@@ -1241,7 +1241,7 @@ function vDash() {
     .concat(cost ? [tile('Total cost', aed(tc), 'CKC ' + r0(T.ckcC) + ' · supply ' + r0(T.supC) + ' · sub ' + r0(T.subC)), tile('Cost per man-hour', T.costedH ? 'AED ' + r1(tc / T.costedH) : '—', 'hours with a rate on record')] : [])
     .concat([tile('Active sites', R.activeTo, 'of ' + R.selSites + ' selected on ' + fmtD(R.lastD).replace(/ \d{4}$/, ''))]);
   const ckcTot = Object.values(R.st).reduce((a, b) => a + b, 0);
-  const status = `<div class="card"><h2>CKC staff status</h2><p class="sub">On ${new Date(R.lastD + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, out of ${ckcTot} CKC people recorded in the registers.</p>
+  const status = `<div class="card"><h2>Staff status (CK + CKC)</h2><p class="sub">On ${new Date(R.lastD + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, out of ${ckcTot} CKC people recorded in the registers.</p>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px">${STAT.map(([c, l]) => `<div class="tile" style="padding:12px 14px;background:var(--surface2);border:0"><div class="v" style="font-size:24px;margin:0">${R.st[c] || 0}</div><div class="s" style="color:var(--muted)">${l} · ${ckcTot ? Math.round((R.st[c] || 0) / ckcTot * 100) : 0}%</div></div>`).join('')}</div></div>`;
   const dd = R.dataDays || 1;
   const projRows = Object.entries(R.proj).sort((a, b) => b[1].h - a[1].h).map(([k, x]) => { const c = x.ckcC + x.supC + x.subC; return `<tr><td>${esc(k)}</td><td class="num">${x.sites.size}</td><td class="num">${r1(x.ppl / dd)}</td><td class="num"><b>${r0(x.h)}</b></td>${cost ? `<td class="num">${r0(x.ckcC)}</td><td class="num">${r0(x.supC)}</td><td class="num">${r0(x.subC)}</td><td class="num"><b>${r0(c)}</b></td><td class="num">${x.costedH ? r1(c / x.costedH) : '—'}</td>` : ''}</tr>`; }).join('');
@@ -2590,8 +2590,8 @@ async function dxTemplate() {
   // How to fill
   const H = wb.addWorksheet('How to fill', { properties: { tabColor: { argb: NAVY } } });
   H.getColumn(1).width = 110;
-  ['PEH daily register: how to fill', '', '1. Tab "CKC staff": type the date at the top (it is used for the whole file).',
-   '2. For every CKC person: check the Site and choose the Status (Present, Absent, Sick leave, Annual leave, Unpaid leave, Comp. off, Work from home, Long leave, Not yet in office).',
+  ['PEH daily register: how to fill', '', '1. Tab "Staff (CK + CKC)": type the date at the top (it is used for the whole file).',
+   '2. For every CK and CKC employee: check the Site and choose the Status (Present, Absent, Sick leave, Annual leave, Unpaid leave, Comp. off, Work from home, Long leave, Not yet in office).',
    '   Hours and overtime: only fill them in if they are different from a normal day. Empty = normal hours.',
    '3. Tab "Supply and subcontract": one line per outside worker. Fill in name, designation, nationality, company, one document (Emirates ID, passport or labour card) and its number, the site and Present / Absent.',
    '   New worker: add a new line at the bottom. A worker who came before: keep the same line (PEH recognises the document number).',
@@ -2601,9 +2601,9 @@ async function dxTemplate() {
    '', 'Yellow = to fill in. Grey = from PEH, do not change. Document numbers are personal data: keep this file inside the company.']
     .forEach((t, i) => { const c = H.getCell(i + 1, 1); c.value = t; c.alignment = { wrapText: true, vertical: 'top' }; if (i === 0) c.font = { bold: true, size: 14, color: { argb: NAVY } }; });
   // CKC staff
-  const C = wb.addWorksheet('CKC staff', { views: [{ state: 'frozen', ySplit: 5 }] });
+  const C = wb.addWorksheet('Staff (CK + CKC)', { views: [{ state: 'frozen', ySplit: 5 }] });
   C.columns = [{ width: 4 }, { width: 15 }, { width: 30 }, { width: 26 }, { width: 18 }, { width: 28 }, { width: 18 }, { width: 13 }, { width: 11 }, { width: 28 }];
-  C.getCell('A1').value = 'CKC staff · daily register'; C.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
+  C.getCell('A1').value = 'Own staff (CK and CKC) · daily register'; C.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
   C.getCell('A2').value = 'Date'; C.getCell('B2').value = new Date(D + 'T12:00:00'); C.getCell('B2').numFmt = 'dd/mm/yyyy';
   C.getCell('A3').value = 'Prepared by'; C.mergeCells('B3:C3');
   ['B2', 'B3'].forEach(a => { C.getCell(a).fill = fill(YEL); C.getCell(a).border = box; C.getCell(a).protection = { locked: false }; });
@@ -2629,7 +2629,7 @@ async function dxTemplate() {
   const O = wb.addWorksheet('Supply and subcontract', { views: [{ state: 'frozen', ySplit: 3 }] });
   O.columns = [{ width: 4 }, { width: 28 }, { width: 22 }, { width: 16 }, { width: 26 }, { width: 13 }, { width: 15 }, { width: 20 }, { width: 26 }, { width: 12 }, { width: 11 }, { width: 10 }, { width: 24 }];
   O.getCell('A1').value = 'Supply and subcontract workers · date:'; O.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
-  O.getCell('F1').value = { formula: "'CKC staff'!B2" }; O.getCell('F1').numFmt = 'dd/mm/yyyy'; O.getCell('F1').font = { bold: true, size: 14 };
+  O.getCell('F1').value = { formula: "'Staff (CK + CKC)'!B2" }; O.getCell('F1').numFmt = 'dd/mm/yyyy'; O.getCell('F1').font = { bold: true, size: 14 };
   O.getRow(3).values = ['PEH key', 'Name', 'Designation', 'Nationality', 'Company', 'Type', 'Document', 'Document number', 'Site', 'Present / Absent', 'Hours (only if different)', 'Overtime hours', 'Remarks'];
   O.getRow(3).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill(NAVY); c.alignment = { wrapText: true, vertical: 'middle' }; c.border = box; }); O.getRow(3).height = 32;
   const docs = S.wdocs || {};
@@ -2659,12 +2659,12 @@ async function dxTemplate() {
   const K = wb.addWorksheet('Check');
   K.columns = [{ width: 30 }, { width: 14 }, { width: 18 }, { width: 14 }, { width: 16 }, { width: 12 }];
   K.getCell('A1').value = 'Check before sending'; K.getCell('A1').font = { bold: true, size: 14, color: { argb: NAVY } };
-  const cR = `'CKC staff'!$F$6:$F$${cEnd}`, cS = `'CKC staff'!$G$6:$G$${cEnd}`, oS = `'Supply and subcontract'!$I$4:$I$${oEnd}`, oT = `'Supply and subcontract'!$F$4:$F$${oEnd}`, oA = `'Supply and subcontract'!$J$4:$J$${oEnd}`, oN = `'Supply and subcontract'!$B$4:$B$${oEnd}`;
-  K.getCell('A3').value = 'CKC staff without a status'; K.getCell('B3').value = { formula: `COUNTIF(${cS},"")` };
+  const cR = `'Staff (CK + CKC)'!$F$6:$F$${cEnd}`, cS = `'Staff (CK + CKC)'!$G$6:$G$${cEnd}`, oS = `'Supply and subcontract'!$I$4:$I$${oEnd}`, oT = `'Supply and subcontract'!$F$4:$F$${oEnd}`, oA = `'Supply and subcontract'!$J$4:$J$${oEnd}`, oN = `'Supply and subcontract'!$B$4:$B$${oEnd}`;
+  K.getCell('A3').value = 'Own staff (CK + CKC) without a status'; K.getCell('B3').value = { formula: `COUNTIF(${cS},"")` };
   K.getCell('A4').value = 'Outside workers with name but no site / attendance'; K.getCell('B4').value = { formula: `SUMPRODUCT((${oN}<>"")*((${oS}="")+(${oA}="")>0))` };
   K.getCell('A5').value = 'Duplicate document numbers'; K.getCell('B5').value = { formula: `SUMPRODUCT(('Supply and subcontract'!$H$4:$H$${oEnd}<>"")*(COUNTIF('Supply and subcontract'!$H$4:$H$${oEnd},'Supply and subcontract'!$H$4:$H$${oEnd})>1))` };
   ['B3', 'B4', 'B5'].forEach(a => K.addConditionalFormatting({ ref: a, rules: [{ type: 'cellIs', operator: 'greaterThan', formulae: [0], style: redS }] }));
-  K.getRow(7).values = ['Site', 'CKC present', 'CKC other status', 'Supply present', 'Subcontract present', 'Total on site'];
+  K.getRow(7).values = ['Site', 'Own staff present', 'Own staff other status', 'Supply present', 'Subcontract present', 'Total on site'];
   K.getRow(7).eachCell(c => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = fill(NAVY); c.border = box; });
   sites.forEach((s, i) => { const rr = 8 + i, a = `$A${rr}`; K.getRow(rr).values = [s,
       { formula: `COUNTIFS(${cR},${a},${cS},"Present")+COUNTIFS(${cR},${a},${cS},"Work from home")` }, { formula: `COUNTIFS(${cR},${a})-COUNTIFS(${cR},${a},${cS},"")-B${rr}` },
@@ -2683,7 +2683,7 @@ async function dxFile(inp) {
   try { await loadJs('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'); } catch (e) { toast('Could not load the Excel reader. Check the internet connection.'); return; }
   let wb; try { wb = window.XLSX.read(await f.arrayBuffer(), { type: 'array', cellDates: false }); } catch (e) { toast('Could not read that file.'); return; }
   const sh = n => wb.Sheets[wb.SheetNames.find(x => x.trim().toLowerCase() === n)];
-  const CS = sh('ckc staff'), OS = sh('supply and subcontract');
+  const CS = sh('staff (ck + ckc)') || sh('ckc staff'), OS = sh('supply and subcontract'); // older templates: "CKC staff"
   if (!CS || !OS) { toast('This is not the PEH daily register template. Download the template from this page.'); return; }
   const isD = v => Object.prototype.toString.call(v) === '[object Date]';
   const dt = v => isD(v) ? (isNaN(v) ? '' : ymd(new Date(v.getTime() + 12 * 36e5))) : typeof v === 'number' && v > 20000 ? new Date(Date.UTC(1899, 11, 30) + Math.floor(v) * 864e5).toISOString().slice(0, 10) : /^\d{4}-\d{2}-\d{2}/.test(String(v)) ? String(v).slice(0, 10) : (() => { const m = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(String(v).trim()); return m ? m[3] + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0') : ''; })();
@@ -2691,7 +2691,7 @@ async function dxFile(inp) {
   const cr = A(CS), orows = A(OS);
   const D = dt((cr[1] || [])[1]); const by = String((cr[2] || [])[1] || '').trim();
   const E = [], W = [];
-  if (!D) E.push('The date at the top of "CKC staff" is missing or not a date.');
+  if (!D) E.push('The date at the top of the "Staff (CK + CKC)" tab is missing or not a date.');
   else if (D > today()) E.push('The date ' + fmtD(D) + ' is in the future.');
   if (D && isClosed(D.slice(0, 7))) E.push('The month of ' + fmtD(D) + ' is closed in PEH. Reopen it first if this must be corrected.');
   const siteBy = {}; Object.entries(S.sites).forEach(([k, s]) => { siteBy[dxNorm(s.name)] = k; });
@@ -2704,7 +2704,7 @@ async function dxFile(inp) {
   const reg = {}; const R = sid => (reg[sid] = reg[sid] || { w: {}, sub: {}, subn: {} });
   let ckcN = 0, ckcUnset = 0;
   const hi = cr.findIndex(r => r.some(c => /^emp id$/i.test(String(c).trim())));
-  cr.slice(hi + 1).forEach((r, i) => { const row = 'CKC staff row ' + (hi + 2 + i);
+  cr.slice(hi + 1).forEach((r, i) => { const row = 'Staff (CK + CKC) row ' + (hi + 2 + i);
     const key = String(r[0] || '').trim(), emp = String(r[1] || '').trim(), name = String(r[2] || '').trim(), site = String(r[5] || '').trim(), st = String(r[6] || '').trim();
     if (!key && !emp && !name) return;
     const pid = (key && S.people[key]) ? key : empBy[dxNorm(emp)];
@@ -2714,7 +2714,7 @@ async function dxFile(inp) {
     const s = statBy[dxNorm(st)]; if (!s) { E.push(row + ': ' + name + ': status "' + st + '" is not valid.'); return; }
     const h = num(r[7], 24, 'hours', row), ot = num(r[8], 16, 'overtime', row); const on = s === 'P' || s === 'WFH';
     R(sid).w[pid] = { s, h: on ? (h == null ? std : h) : 0, ot: on ? (ot || 0) : 0 }; ckcN++; });
-  if (ckcUnset) W.push(ckcUnset + ' CKC staff have no status and will not be recorded for this day.');
+  if (ckcUnset) W.push(ckcUnset + ' CK / CKC staff have no status and will not be recorded for this day.');
   const docKey = dxDocKey(); const seenDoc = {}; const newW = [], updW = [];
   let supN = 0, subN = 0;
   const ohi = orows.findIndex(r => r.some(c => /^document number$/i.test(String(c).trim())));
